@@ -1,0 +1,10 @@
+joblib==1.1.1
+matplotlib==3.6.0
+numpy==1.23.3
+pandas==1.5.0
+scapy==2.4.5
+scikit_learn==1.2.1
+scipy==1.9.3
+tqdm==4.64.1
+typer==0.7.0
+xgboost==1.4.0
