@@ -26,6 +26,8 @@ LABEL_INDEX = -2
 CAPTURE_INDEX = -1
 
 DECISION_THRESHOLD = 0.9
+
+models_folder = 'models/'
 model_save_file = 'source_separation_model.joblib'
 
 
@@ -44,7 +46,6 @@ mpl.rcParams['axes.spines.top'] = False
 
 
 def optimal_threshold(tpr, fpr, thresholds):
-    # https://stats.stackexchange.com/questions/123124/how-to-determine-the-optimal-threshold-for-a-classifier-and-generate-roc-curve
     optimal_idx = np.argmax(tpr - fpr)
     optimal_threshold = thresholds[optimal_idx]
     
@@ -69,6 +70,12 @@ def plot_precision_recall_curve(y_test, probas_):
     plt.yticks(y_axis, y_axis)
     plt.legend()
     plt.tight_layout()
+
+    results_folder = 'results/'
+    if not os.path.exists(results_folder):
+        os.makedirs(results_folder)
+    plt.savefig(results_folder + 'precision_recall_curve_source_separation.pdf')
+    plt.savefig(results_folder + 'precision_recall_curve_source_separation.png')
 
 
 def gatherDataset(plFile, statsFile):
@@ -111,14 +118,17 @@ def train(plFileTrain, statsFileTrain):
     model = XGBClassifier()
     print("\n=== Training model ...")
     model.fit(X_train, y_train)
-    joblib.dump(model, model_save_file)
+
+    if not os.path.exists(models_folder):
+        os.makedirs(models_folder)
+    joblib.dump(model, models_folder+model_save_file)
 
 
-def test(plFileTest, statsFileTest):
+def test(plFileTest, statsFileTest, optimalThr=True):
 
-    if os.isfile(model_save_file):
+    if os.path.isfile(models_folder+model_save_file):
         print("Gathering trained model ...")
-        model = joblib.load(model_save_file)
+        model = joblib.load(models_folder+model_save_file)
     else:
         print("You have to train source separation's model first!")
         print("Exiting ...")
@@ -132,7 +142,12 @@ def test(plFileTest, statsFileTest):
     plot_precision_recall_curve(y_test, probas_)
 
     fpr, tpr, thresholds = roc_curve(y_test, probas_[:, 1], pos_label=1)
-    decision_threshold = optimal_threshold(tpr, fpr, thresholds)
+
+    if optimalThr == True:
+        decision_threshold = optimal_threshold(tpr, fpr, thresholds)
+    else:
+        decision_threshold = DECISION_THRESHOLD
+
     dumpPipelineFeatures(X_test, probas_[:, 1], test_captures, decision_threshold)
     
     return probas_
@@ -151,5 +166,8 @@ def dumpPipelineFeatures(features, predictions, captures, decision_threshold):
         else:
             outputOSFeatures[captures.iloc[i]] = features.iloc[i]
 
-    pickle.dump(outputClientFeatures, open('client_features_source_separation.pickle', 'wb'))
-    pickle.dump(outputOSFeatures, open('os_features_source_separation.pickle', 'wb'))
+    features_folder = 'full_pipeline_features/'
+    if not os.path.exists(features_folder):
+        os.makedirs(features_folder)
+    pickle.dump(outputClientFeatures, open(features_folder+'client_features_source_separation_thr_{}.pickle'.format(decision_threshold), 'wb'))
+    pickle.dump(outputOSFeatures, open(features_folder+'os_features_source_separation_thr_{}.pickle'.format(decision_threshold), 'wb'))

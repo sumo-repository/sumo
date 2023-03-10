@@ -7,10 +7,8 @@ import extract_features
 app = typer.Typer()
 
 
-#captures_folder_train = 'OSTrain/'
-#captures_folder_test = 'OSTest/'
-captures_folder_train = '/Volumes/TOSHIBA_EXT/datasets_simulate_user/OSTrain/'
-captures_folder_test = '/Volumes/TOSHIBA_EXT/datasets_simulate_user/OSTest/'
+captures_folder_train = '../OSTrain/'
+captures_folder_test = '../OSTest/'
 
 featureFolderTrain = 'features_train/'
 featureFolderTest = 'features_test/'
@@ -35,13 +33,14 @@ def extract_test_features():
 @app.command()
 def train():
     print("Training model ...")
-    classifier.train(featureFolderTrain + plFileTrain, featureFolderTrain + statsFileTrain)
+    classifier.train(plFileTrain, statsFileTrain)
 
 
 @app.command()
 def test_standalone():
     print("Testing model ...")
-    classifier.test(featureFolderTest + plFileTest, featureFolderTest + statsFileTest)
+    #classifier.test(plFileTest, statsFileTest, optimalThr=True)
+    classifier.test(plFileTest, statsFileTest, optimalThr=False)
 
 
 @app.command()
@@ -49,6 +48,14 @@ def test_full_pipeline():
     print("Testing model with full pipeline data ...")
     classifier.test_full_pipeline()
 
+
+@app.command()
+def full_execution():
+    extract_train_features()
+    extract_test_features()
+    train()
+    test_standalone()
+    
 
 if __name__ == "__main__":
     app()

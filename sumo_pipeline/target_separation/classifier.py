@@ -19,6 +19,8 @@ LABEL_INDEX = -2
 CAPTURE_INDEX = -1
 
 THRESHOLD = 0.9
+
+models_folder = 'models/'
 model_save_file = 'target_separation_model.joblib'
 
 
@@ -82,6 +84,12 @@ def plot_precision_recall_curve(y_test, probas_):
     plt.legend()
     plt.tight_layout()
 
+    results_folder = 'results/'
+    if not os.path.exists(results_folder):
+        os.makedirs(results_folder)
+    plt.savefig(results_folder + 'precision_recall_curve_target_separation.pdf')
+    plt.savefig(results_folder + 'precision_recall_curve_target_separation.png')
+
 
 def gatherDataset(plFile, statsFile):
     pl = pd.read_csv(plFile) 
@@ -91,14 +99,20 @@ def gatherDataset(plFile, statsFile):
     cols = stats[stats.columns[:LABEL_INDEX]].select_dtypes(exclude=['float']).columns
     stats[cols] = stats[cols].apply(pd.to_numeric, downcast='float', errors='coerce')
 
-    # drop captures (last column)
-    pl = pl[pl.columns[:LABEL_INDEX]]
+    # drop class (last column)
+    pl = pl[pl.columns[:-1]]
 
     # Combine both feature sets side by side
     train = pd.concat([pl, stats], axis=1)
-    #print("train", train)
     
-    train[' Class'] = train[' Class'].astype(int)
+    print("pl", pl)
+    print("train", train)
+    print("train[' Class'][12]", train[' Class'].tolist()[12])
+    print("train[' Class'][13]", train[' Class'].tolist()[13])
+    print("train[' Class'][14]", train[' Class'].tolist()[14])
+    print("train[' Class']", train[' Class'])
+    #train[' Class'] = train[' Class'].astype(int)
+    train[' Class'] = pd.to_numeric(train[' Class'])
 
     # Remove columns that only have zeros
     train.loc[:, (train != 0).any(axis=0)]
@@ -116,7 +130,7 @@ def gatherDataset(plFile, statsFile):
 
 
 def gatherFullPipelineDataset():
-    clientsFullPipeline = pickle.load(open('../source_separation/client_features_source_separation.pickle', 'rb'))
+    clientsFullPipeline = pickle.load(open('../source_separation/full_pipeline_features/client_features_source_separation.pickle', 'rb'))
     captures = list(clientsFullPipeline.keys())
 
     x_train = pd.DataFrame(clientsFullPipeline.values())
@@ -155,14 +169,17 @@ def train(plFileTrain, statsFileTrain):
     model = XGBClassifier()
     print("\n=== Training model ...")
     model.fit(np.asarray(X_train), np.asarray(y_train))
-    joblib.dump(model, model_save_file)
+    
+    if not os.path.exists(models_folder):
+        os.makedirs(models_folder)
+    joblib.dump(model, models_folder+model_save_file)
 
 
 def test(plFileTest, statsFileTest):
 
-    if os.isfile(model_save_file):
+    if os.path.isfile(models_folder+model_save_file):
         print("Gathering trained model ...")
-        model = joblib.load(model_save_file)
+        model = joblib.load(models_folder+model_save_file)
     else:
         print("You have to train target separation's model first!")
         print("Exiting ...")
@@ -202,7 +219,10 @@ def test_full_pipeline():
         if predictions_final[i] == 1:     
             outputClientFeatures[test_captures.iloc[i]] = X_test.iloc[i]
 
-    pickle.dump(outputClientFeatures, open('client_features_target_separation.pickle', 'wb'))
+    features_folder = 'full_pipeline_features/'
+    if not os.path.exists(features_folder):
+        os.makedirs(features_folder)
+    pickle.dump(outputClientFeatures, open(features_folder+'client_features_target_separation.pickle', 'wb'))
 
     
     return probas_

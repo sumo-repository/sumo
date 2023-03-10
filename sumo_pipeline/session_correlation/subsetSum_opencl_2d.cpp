@@ -18,7 +18,7 @@
 #define CL_HPP_ENABLE_EXCEPTIONS
 #define CL_HPP_TARGET_OPENCL_VERSION 200
 #include "opencl.hpp" // OpenCL Khronos C++ Wrapper API for Mac
-#include "subsetsum_aos.h"
+#include "subsetsum.h"
 
 #define OCL_CHECK(result, fn, ...) \
     if(((result) = (fn)) != CL_SUCCESS) { std::cerr << "[line " << __LINE__ << "]" << getErrorString(result) << std::endl; __VA_ARGS__ ; }
@@ -178,6 +178,7 @@ extern "C"
         {
             total_buckets += n_buckets[i];
             total_windows += n_windows[i];
+            printf("n_windows[i]: %d\n", n_windows[i]);
         }
         //printf("After total_buckets: %d - total_windows: %d\n", total_buckets, total_windows);
 
@@ -206,15 +207,15 @@ extern "C"
         OCL_ERROR(result, clSetKernelArg(outer_loop_subset_sum_kernel(), 3, sizeof(int) * buckets_per_window, NULL));
         outer_loop_subset_sum_kernel.setArg(4, delta);
         outer_loop_subset_sum_kernel.setArg(5, buckets_per_window);
-        outer_loop_subset_sum_kernel.setArg(6, nWindowsArray_d);
-        outer_loop_subset_sum_kernel.setArg(7, scoresArray_d);
-        outer_loop_subset_sum_kernel.setArg(8, accWindowsArray_d);
+        outer_loop_subset_sum_kernel.setArg(6, buckets_overlap);
+        outer_loop_subset_sum_kernel.setArg(7, nWindowsArray_d);
+        outer_loop_subset_sum_kernel.setArg(8, scoresArray_d);
+        outer_loop_subset_sum_kernel.setArg(9, accWindowsArray_d);
 
         size_t global_work_size[2] = {(size_t)nPairs, N_WINDOWS};
         //size_t global_work_size = 10;
         size_t local_work_size[2] = {1, 1};
         //size_t local_work_size = 1;
-        // List of possible OpenCL errors: https://tersetalk.wordpress.com/2012/04/13/opencl-error-codes/
 
         //queue.enqueueNDRangeKernel(outer_loop_subset_sum_kernel, cl::NullRange, cl::NDRange(global_work_size), cl::NDRange(local_work_size));
         OCL_ERROR(result, clEnqueueNDRangeKernel(queue(), outer_loop_subset_sum_kernel(), 2, NULL, global_work_size, local_work_size, 0, NULL, NULL));
@@ -236,66 +237,4 @@ static int gen(int low, int high)
 {
     assert(high > low && "invalid input value");
     return (rand() % (high-low)) + low;
-}
-
-int main(int argc, char** argv)
-{
-    //int nPairs = 1000;
-    int nPairs = 2094;
-    const int delta = 60;
-    const int buckets_per_window = 2;
-    const int buckets_overlap = 2;
-    long count_buckets = 0;
-    long count_windows = 0;
-
-    printf("Usage %s [MULT_N_PAIRS]\n", argv[0]);
-
-    if (argc > 1)
-        nPairs *= atoi(argv[1]);
-
-    std::vector<int>* buckets = new std::vector<int>(nPairs);
-    std::vector<int>* windows = new std::vector<int>(nPairs);
-    std::vector<int>* acc_windows = new std::vector<int>(nPairs);
-
-    std::vector<int>* scores = new std::vector<int>();
-    std::vector<int>* client_num = new std::vector<int>();
-    std::vector<int>* os_num = new std::vector<int>();
-
-    srand (1234);
-
-    (*acc_windows)[0] = 0;
-    for (int i = 0; i < nPairs; ++i)
-    {
-        const int factor = 10;
-        int nWindows = gen(1, 4);
-        int nBuckets = nWindows * factor;
-        count_buckets += nBuckets;
-        count_windows += nWindows;
-        (*windows)[i] = nWindows;
-        (*buckets)[i] = nBuckets;
-        if (i > 0)
-            (*acc_windows)[i] = (*acc_windows)[i-1] + nBuckets;
-        for (int i = 0; i < nBuckets; ++i)
-        {
-            client_num->push_back(gen(10, 200)); // between 10-200
-            os_num->push_back(gen(10, 200)); // between 10-200
-        }
-    }
-
-    scores->reserve(count_windows);
-
-    TIMER_T t1, t2;
-
-    TIMER_READ(t1);
-    wholeLoopSubsetSum(&(*client_num)[0], &(*os_num)[0], &(*buckets)[0], &(*windows)[0], nPairs, delta, buckets_per_window, buckets_overlap, &(*scores)[0], &(*acc_windows)[0]);
-    TIMER_READ(t2);
-    printf("Exec time (s): %f\n", TIMER_DIFF_SECONDS(t1, t2));
-
-    delete client_num;
-    delete os_num;
-    delete scores;
-    delete buckets;
-    delete windows;
-    delete acc_windows;
-    return 0;
 }

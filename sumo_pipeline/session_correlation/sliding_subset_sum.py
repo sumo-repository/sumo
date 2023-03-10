@@ -33,9 +33,9 @@ buckets_overlap = int(overlap / (timeSamplingInterval / 1000))
 
 IS_2D_OPENCL_IMPL = False
 if IS_2D_OPENCL_IMPL == False:
-    import mySubsetSumOpenCL as my_subset_sum
+    import subsetSumOpenCLWrapper as sliding_subset_sum
 else:
-    import mySubsetSumOpenCL2D as my_subset_sum
+    import subsetSumOpenCL2DWrapper as sliding_subset_sum
 
 
 def pre_process(is_full_pipeline):
@@ -148,7 +148,7 @@ def run_windowed_subset_sum_on_all_pairs(delta, possible_request_combinations, c
 
             count_pairs += 1
 
-        scores = my_subset_sum.whole_loop_subset_sum(packetListClients, packetListOSes, len(packetListClients), nBuckets, delta, buckets_per_window, buckets_overlap, nWindows)
+        scores = sliding_subset_sum.whole_loop_subset_sum(packetListClients, packetListOSes, len(packetListClients), nBuckets, delta, buckets_per_window, buckets_overlap, nWindows)
         
         counter = 0
         for start, (clientSessionId, osSessionId) in enumerate(possible_request_combinations.keys()):
@@ -190,7 +190,7 @@ def run_windowed_subset_sum_on_all_pairs(delta, possible_request_combinations, c
             acc += nWindows[i - 1]
             acc_windows.append(acc)
 
-        scores = my_subset_sum.whole_loop_subset_sum(packetListClients, packetListOSes, count_pairs, nBuckets, delta, buckets_per_window, buckets_overlap, nWindows, acc_windows)
+        scores = sliding_subset_sum.whole_loop_subset_sum(packetListClients, packetListOSes, count_pairs, nBuckets, delta, buckets_per_window, buckets_overlap, nWindows, acc_windows)
 
         count_windows = 0
         for start, (clientSessionId, osSessionId) in enumerate(possible_request_combinations.keys()):

@@ -12,7 +12,7 @@ from scipy.stats import kurtosis, skew
 from scapy.all import *
 
 
-DATA_FOLDER = 'OSTest/'
+DATA_FOLDER = '../OSTest/'
 dataset_name = 'OSTest'
 topPath = "extracted_features/"
 clientPath = topPath + "client_{}/".format(dataset_name)
@@ -43,7 +43,7 @@ def extract_client_data(data_folder):
             continue
 
         capturePath = data_folder + 'TrafficCapturesClient/' + capture_folder+ '/'
-        # Because we need to take into account possible different names with "-new"
+
         capture_folder_split = capture_folder.split("captures-")
         client_node = capture_folder_split[1]
         if len(capture_folder_split) > 2:
@@ -87,6 +87,9 @@ def extract_traffic_features(capture_folder, machine_ip, mode):
         if(".pcap" not in sample):
             continue
 
+        if(".zst" in sample):
+            continue
+
         if ("._" in sample):
             continue
             
@@ -97,8 +100,6 @@ def extract_traffic_features(capture_folder, machine_ip, mode):
         ###############################################################
         # Extract packet features from the .pcap
         ###############################################################
-
-        #print(capture_folder + "/" + sample)
 
         try:
             cap = PcapReader(capture_folder + "/" + sample)
@@ -122,7 +123,7 @@ def extract_traffic_features(capture_folder, machine_ip, mode):
         tor_node = None
 
         ###################################
-        # Diogo's Features Here
+        # Main Statistical Features Here
         ###################################
 
         # Analyse packets transmited
@@ -235,7 +236,6 @@ def extract_traffic_features(capture_folder, machine_ip, mode):
                         if (in_current_burst == 0):
                             in_current_burst_start = ts
                         in_current_burst += 1
-                        #in_current_burst_size += len(buf)
                         in_current_burst_size += size
 
                     # If machine is sender
@@ -567,10 +567,10 @@ def extract_traffic_features(capture_folder, machine_ip, mode):
         # Save extracted packet features
         ###############################################################
         if(mode == "client"):
-            extracted_features_folder = "%s/%s/%s/%s/"%(topPath, mode+dataset_name, os.path.basename(capture_folder),sample[:-5])
+            extracted_features_folder = "%s/%s/%s/%s/"%(topPath, mode+'_'+dataset_name, os.path.basename(capture_folder),sample[:-5])
             tor_node = dst_ip_addr_str
         elif(mode == "onion_server"):
-            extracted_features_folder = "%s/%s/%s/%s/%s/"%(topPath, mode+dataset_name, "captures-"+capture_folder.split("/")[-1].split("-")[1], os.path.basename(capture_folder),sample[:-5])
+            extracted_features_folder = "%s/%s/%s/%s/%s/"%(topPath, mode+'_'+dataset_name, "captures-"+capture_folder.split("/")[-1].split("-")[1], os.path.basename(capture_folder),sample[:-5])
             tor_node = src_ip_addr_str
 
         if not os.path.exists(extracted_features_folder):
@@ -631,7 +631,6 @@ def extract_traffic_features(capture_folder, machine_ip, mode):
         stats_file.write("TorNode: %s\n"%tor_node)
         stats_file.close()
 
-        #Saving Diogo's Features
         f_names_stats = []
         f_values_stats = []
 
@@ -1030,6 +1029,8 @@ def extract_traffic_features(capture_folder, machine_ip, mode):
 
 
 def extract_features():
+    if not os.path.exists(topPath):
+        os.makedirs(topPath)
     extract_client_data(DATA_FOLDER)
     extract_onion_server_data(DATA_FOLDER)
 
@@ -1100,7 +1101,7 @@ def store_alexa_features(connection):
     folderDict['clientFlow']['sizesIn'] = clientSizesIn
     folderDict['clientFlow']['sizesOut'] = clientSizesOut
 
-    folderDict['clientFeatures'] = pickle.load(open(folderDict['clientFolder'] + '/diogos_features', 'rb'))
+    folderDict['clientFeatures'] = pickle.load(open(folderDict['clientFolder'] + '/statistical_features', 'rb'))
 
     key = connection
     sessionIndex = int(connection.split('session_')[1].split('_')[0])
@@ -1116,206 +1117,208 @@ def store_alexa_features(connection):
         onionAddressData[onionUrl] = {'connectionIndex': 0}
 
 
-#for locationIndex in tqdm.tqdm(listdir(clientPath)):
-for connection in tqdm.tqdm(listdir(clientPath)):
-    #print("----> locationIndex:", locationIndex)
-    # Take care of .DS_Store files
-    #if isdir(clientPath+locationIndex):
-    if isdir(clientPath+connection):
-        #for connection in tqdm.tqdm(listdir(clientPath+locationIndex)):
+def extract_pairs():
+    count = 0
+    #for locationIndex in tqdm.tqdm(listdir(clientPath)):
+    for connection in tqdm.tqdm(listdir(clientPath)):
+        #print("----> locationIndex:", locationIndex)
+        # Take care of .DS_Store files
+        #if isdir(clientPath+locationIndex):
+        if isdir(clientPath+connection):
+            #for connection in tqdm.tqdm(listdir(clientPath+locationIndex)):
 
-        if 'request' in connection:
-            continue
-        # Process alexa into another folder
-        if 'alexa' in connection:
-            continue
+            if 'request' in connection:
+                continue
         
-        #if 'alexa' in connection:
-        #    store_alexa_features(connection)
-        #    continue
+            # Process alexa into another folder
+            if 'alexa' in connection:
+                store_alexa_features(connection)
+                continue
 
-        count += 1
-        folderDict = {}
-        #clientFolder = clientPath + locationIndex + '/' + connection
-        clientFolder = clientPath + '/' + connection
+            count += 1
+            folderDict = {}
+            #clientFolder = clientPath + locationIndex + '/' + connection
+            clientFolder = clientPath + '/' + connection
 
-        #print("locationIndex", locationIndex)
-        
-        origin = connection.split('_')[0]
-        origin_machine = origin.split('-client')[0]
-        destination = connection.split('_')[1]
-        destination_machine = 'os' + destination.split('-os')[1]
-        onionUrl = connection.split('_')[2]
-        #size = connection.split('_')[3]
-        #extraRequests = connection.split('_')[4]
-        #index = connection.split('_')[5]
-        index = connection.split('_')[3]
+            #print("locationIndex", locationIndex)
+            
+            origin = connection.split('_')[0]
+            origin_machine = origin.split('-client')[0]
+            destination = connection.split('_')[1]
+            print("\norigin", origin)
+            print("destination", destination)
+            destination_machine = 'os' + destination.split('-os')[1]
+            onionUrl = connection.split('_')[2]
+            #size = connection.split('_')[3]
+            #extraRequests = connection.split('_')[4]
+            #index = connection.split('_')[5]
+            index = connection.split('_')[3]
 
-        originFolder = origin.split("-")[1]
-        
-        hsEnding_part0 = connection.split("_session")[1]
-        hsEnding_part1 = hsEnding_part0.split("client")[0]
-        hsEnding = hsEnding_part1 + "hs"
-        #hsFolder = hsPath + "captures-" + originFolder + '/' + origin + '-' + destination + '/' + origin + '_' + destination + '_' + onionUrl + '_' + index + hsEnding
-        hsFolder = hsPath + "captures-" + originFolder + '/' + origin_machine + '-' + destination_machine + '/' + origin + '_' + destination + '_' + onionUrl + '_' + index + hsEnding
-        #hsFolder = hsPath + "captures-" + originFolder + '/' + origin + '-' + destination + '/' + origin + '_' + destination + '_' + onionUrl + '_' + size + '_' + extraRequests + '_' + index + hsEnding
+            originFolder = origin.split("-")[1]
+            
+            hsEnding_part0 = connection.split("_session")[1]
+            hsEnding_part1 = hsEnding_part0.split("client")[0]
+            hsEnding = hsEnding_part1 + "hs"
+            #hsFolder = hsPath + "captures-" + originFolder + '/' + origin + '-' + destination + '/' + origin + '_' + destination + '_' + onionUrl + '_' + index + hsEnding
+            hsFolder = hsPath + "captures-" + originFolder + '/' + origin_machine + '-' + destination_machine + '/' + origin + '_' + destination + '_' + onionUrl + '_' + index + hsEnding
+            #hsFolder = hsPath + "captures-" + originFolder + '/' + origin + '-' + destination + '/' + origin + '_' + destination + '_' + onionUrl + '_' + size + '_' + extraRequests + '_' + index + hsEnding
 
-        if(not isdir(hsFolder)):
-            print("not dir:" , hsFolder)
-            continue
-        
-        folderDict['clientFolder'] = clientFolder
-        folderDict['hsFolder'] = hsFolder
-        folderDict['clientLocation'] = origin
-        folderDict['hsLocation'] = destination
-        folderDict['onionAddress'] = onionUrl
-        #folderDict['size'] = size
-        #folderDict['extraRequests'] = extraRequests
-        
+            if(not isdir(hsFolder)):
+                print("not dir:" , hsFolder)
+                continue
+            
+            folderDict['clientFolder'] = clientFolder
+            folderDict['hsFolder'] = hsFolder
+            folderDict['clientLocation'] = origin
+            folderDict['hsLocation'] = destination
+            folderDict['onionAddress'] = onionUrl
+            #folderDict['size'] = size
+            #folderDict['extraRequests'] = extraRequests
+            
 
-        clientInitialTimeStamp = 0
-        clientIn = 0
-        clientOut = 0
+            clientInitialTimeStamp = 0
+            clientIn = 0
+            clientOut = 0
 
-        hsInitialTimeStamp = 0
-        hsIn = 0
-        hsOut = 0
+            hsInitialTimeStamp = 0
+            hsIn = 0
+            hsOut = 0
 
-        #client reading flow properties
-        with open(folderDict['clientFolder'] + '/meta_stats') as f:
-            for line in f:
-                if 'InitialTimestamp' in line:
-                    clientInitialTimeStamp = float(line[:-1].split(' ')[-1])
-                elif 'Sizes (in)' in line:
-                    clientIn = int(line[:-1].split(' ')[-1])
-                elif 'Sizes (out)' in line:
-                    clientOut = int(line[:-1].split(' ')[-1])
-
-
-        #hs reading flow properties
-        with open(folderDict['hsFolder'] + '/meta_stats') as f:
-            for line in f:
-                if 'InitialTimestamp' in line:
-                    hsInitialTimeStamp = float(line[:-1].split(' ')[-1])
-                elif 'Sizes (in)' in line:
-                    hsIn = int(line[:-1].split(' ')[-1])
-                elif 'Sizes (out)' in line:
-                    hsOut = int(line[:-1].split(' ')[-1]) 
-
-        folderDict['clientMetaStats'] = {}
-        folderDict['clientMetaStats']['initialTimestamp'] = clientInitialTimeStamp
-        folderDict['clientMetaStats']['sizesIn'] = clientIn
-        folderDict['clientMetaStats']['sizesOut'] = clientOut
-
-        folderDict['hsMetaStats'] = {}
-        folderDict['hsMetaStats']['initialTimestamp'] = hsInitialTimeStamp
-        folderDict['hsMetaStats']['sizesIn'] = hsIn
-        folderDict['hsMetaStats']['sizesOut'] = hsOut
+            #client reading flow properties
+            with open(folderDict['clientFolder'] + '/meta_stats') as f:
+                for line in f:
+                    if 'InitialTimestamp' in line:
+                        clientInitialTimeStamp = float(line[:-1].split(' ')[-1])
+                    elif 'Sizes (in)' in line:
+                        clientIn = int(line[:-1].split(' ')[-1])
+                    elif 'Sizes (out)' in line:
+                        clientOut = int(line[:-1].split(' ')[-1])
 
 
-        #client reading flow properties
-        with open(folderDict['clientFolder'] + '/times_in') as f:
-            clientTimesIn = f.readlines()
-        clientTimesIn = [float(x) for x in clientTimesIn] 
+            #hs reading flow properties
+            with open(folderDict['hsFolder'] + '/meta_stats') as f:
+                for line in f:
+                    if 'InitialTimestamp' in line:
+                        hsInitialTimeStamp = float(line[:-1].split(' ')[-1])
+                    elif 'Sizes (in)' in line:
+                        hsIn = int(line[:-1].split(' ')[-1])
+                    elif 'Sizes (out)' in line:
+                        hsOut = int(line[:-1].split(' ')[-1]) 
 
-        with open(folderDict['clientFolder'] + '/times_in_rel') as f:
-            clientTimesInRel = f.readlines()
-        clientTimesInRel = [float(x) for x in clientTimesInRel] 
+            folderDict['clientMetaStats'] = {}
+            folderDict['clientMetaStats']['initialTimestamp'] = clientInitialTimeStamp
+            folderDict['clientMetaStats']['sizesIn'] = clientIn
+            folderDict['clientMetaStats']['sizesOut'] = clientOut
 
-        with open(folderDict['clientFolder'] + '/times_in_abs') as f:
-            clientTimesInAbs = f.readlines()
-        clientTimesInAbs = [float(x) for x in clientTimesInAbs] 
+            folderDict['hsMetaStats'] = {}
+            folderDict['hsMetaStats']['initialTimestamp'] = hsInitialTimeStamp
+            folderDict['hsMetaStats']['sizesIn'] = hsIn
+            folderDict['hsMetaStats']['sizesOut'] = hsOut
 
-        with open(folderDict['clientFolder'] + '/times_out') as f:
-            clientTimesOut= f.readlines()
-        clientTimesOut = [float(x) for x in clientTimesOut] 
 
-        with open(folderDict['clientFolder'] + '/times_out_rel') as f:
-            clientTimesOutRel= f.readlines()
-        clientTimesOutRel = [float(x) for x in clientTimesOutRel]
+            #client reading flow properties
+            with open(folderDict['clientFolder'] + '/times_in') as f:
+                clientTimesIn = f.readlines()
+            clientTimesIn = [float(x) for x in clientTimesIn] 
 
-        with open(folderDict['clientFolder'] + '/times_out_abs') as f:
-            clientTimesOutAbs= f.readlines()
-        clientTimesOutAbs = [float(x) for x in clientTimesOutAbs]
+            with open(folderDict['clientFolder'] + '/times_in_rel') as f:
+                clientTimesInRel = f.readlines()
+            clientTimesInRel = [float(x) for x in clientTimesInRel] 
 
-        with open(folderDict['clientFolder'] + '/sizes_in') as f:
-            clientSizesIn = f.readlines()
-        clientSizesIn = [float(x) for x in clientSizesIn] 
+            with open(folderDict['clientFolder'] + '/times_in_abs') as f:
+                clientTimesInAbs = f.readlines()
+            clientTimesInAbs = [float(x) for x in clientTimesInAbs] 
 
-        with open(folderDict['clientFolder'] + '/sizes_out') as f:
-            clientSizesOut = f.readlines()
-        clientSizesOut = [float(x) for x in clientSizesOut] 
+            with open(folderDict['clientFolder'] + '/times_out') as f:
+                clientTimesOut= f.readlines()
+            clientTimesOut = [float(x) for x in clientTimesOut] 
 
-        #hs reading flow properties
-        with open(folderDict['hsFolder'] + '/times_in') as f:
-            hsTimesIn = f.readlines()
-        hsTimesIn = [float(x) for x in hsTimesIn] 
+            with open(folderDict['clientFolder'] + '/times_out_rel') as f:
+                clientTimesOutRel= f.readlines()
+            clientTimesOutRel = [float(x) for x in clientTimesOutRel]
 
-        with open(folderDict['hsFolder'] + '/times_in_abs') as f:
-            hsTimesInAbs = f.readlines()
-        hsTimesInAbs = [float(x) for x in hsTimesInAbs] 
+            with open(folderDict['clientFolder'] + '/times_out_abs') as f:
+                clientTimesOutAbs= f.readlines()
+            clientTimesOutAbs = [float(x) for x in clientTimesOutAbs]
 
-        with open(folderDict['hsFolder'] + '/times_in_rel') as f:
-            hsTimesInRel = f.readlines()
-        hsTimesInRel = [float(x) for x in hsTimesInRel] 
+            with open(folderDict['clientFolder'] + '/sizes_in') as f:
+                clientSizesIn = f.readlines()
+            clientSizesIn = [float(x) for x in clientSizesIn] 
 
-        with open(folderDict['hsFolder'] + '/times_out') as f:
-            hsTimesOut= f.readlines()
-        hsTimesOut = [float(x) for x in hsTimesOut] 
+            with open(folderDict['clientFolder'] + '/sizes_out') as f:
+                clientSizesOut = f.readlines()
+            clientSizesOut = [float(x) for x in clientSizesOut] 
 
-        with open(folderDict['hsFolder'] + '/times_out_rel') as f:
-            hsTimesOutRel= f.readlines()
-        hsTimesOutRel = [float(x) for x in hsTimesOutRel]
+            #hs reading flow properties
+            with open(folderDict['hsFolder'] + '/times_in') as f:
+                hsTimesIn = f.readlines()
+            hsTimesIn = [float(x) for x in hsTimesIn] 
 
-        with open(folderDict['hsFolder'] + '/times_out_abs') as f:
-            hsTimesOutAbs= f.readlines()
-        hsTimesOutAbs = [float(x) for x in hsTimesOutAbs]
+            with open(folderDict['hsFolder'] + '/times_in_abs') as f:
+                hsTimesInAbs = f.readlines()
+            hsTimesInAbs = [float(x) for x in hsTimesInAbs] 
 
-        with open(folderDict['hsFolder'] + '/sizes_in') as f:
-            hsSizesIn = f.readlines()
-        hsSizesIn = [float(x) for x in hsSizesIn] 
+            with open(folderDict['hsFolder'] + '/times_in_rel') as f:
+                hsTimesInRel = f.readlines()
+            hsTimesInRel = [float(x) for x in hsTimesInRel] 
 
-        with open(folderDict['hsFolder'] + '/sizes_out') as f:
-            hsSizesOut = f.readlines()
-        hsSizesOut = [float(x) for x in hsSizesOut]  
+            with open(folderDict['hsFolder'] + '/times_out') as f:
+                hsTimesOut= f.readlines()
+            hsTimesOut = [float(x) for x in hsTimesOut] 
 
-        folderDict['clientFlow'] = {}
-        folderDict['clientFlow']['timesIn'] = clientTimesIn
-        folderDict['clientFlow']['timesOut'] = clientTimesOut
-        folderDict['clientFlow']['timesInRel'] = clientTimesInRel
-        folderDict['clientFlow']['timesOutRel'] = clientTimesOutRel
-        folderDict['clientFlow']['timesInAbs'] = clientTimesInAbs
-        folderDict['clientFlow']['timesOutAbs'] = clientTimesOutAbs
-        folderDict['clientFlow']['sizesIn'] = clientSizesIn
-        folderDict['clientFlow']['sizesOut'] = clientSizesOut
+            with open(folderDict['hsFolder'] + '/times_out_rel') as f:
+                hsTimesOutRel= f.readlines()
+            hsTimesOutRel = [float(x) for x in hsTimesOutRel]
 
-        folderDict['hsFlow'] = {}
-        folderDict['hsFlow']['timesIn'] = hsTimesIn
-        folderDict['hsFlow']['timesOut'] = hsTimesOut
-        folderDict['hsFlow']['timesInRel'] = hsTimesInRel
-        folderDict['hsFlow']['timesOutRel'] = hsTimesOutRel
-        folderDict['hsFlow']['timesInAbs'] = hsTimesInAbs
-        folderDict['hsFlow']['timesOutAbs'] = hsTimesOutAbs
-        folderDict['hsFlow']['sizesIn'] = hsSizesIn
-        folderDict['hsFlow']['sizesOut'] = hsSizesOut
+            with open(folderDict['hsFolder'] + '/times_out_abs') as f:
+                hsTimesOutAbs= f.readlines()
+            hsTimesOutAbs = [float(x) for x in hsTimesOutAbs]
 
-        folderDict['hsFeatures'] = pickle.load(open(folderDict['hsFolder'] + '/diogos_features', 'rb'))
-        folderDict['clientFeatures'] = pickle.load(open(folderDict['clientFolder'] + '/diogos_features', 'rb'))
+            with open(folderDict['hsFolder'] + '/sizes_in') as f:
+                hsSizesIn = f.readlines()
+            hsSizesIn = [float(x) for x in hsSizesIn] 
 
-        key = (origin, destination)
-        sessionIndex = int(connection.split('session_')[1].split('_')[0])
-        if key not in pairsFolders:
-            pairsFolders[key] = []
+            with open(folderDict['hsFolder'] + '/sizes_out') as f:
+                hsSizesOut = f.readlines()
+            hsSizesOut = [float(x) for x in hsSizesOut]  
 
-        if sessionIndex >= len(pairsFolders[key]):
-            for i in range(len(pairsFolders[key]), sessionIndex + 1):
-                pairsFolders[key].append([])
-        pairsFolders[key][sessionIndex] += [folderDict]
+            folderDict['clientFlow'] = {}
+            folderDict['clientFlow']['timesIn'] = clientTimesIn
+            folderDict['clientFlow']['timesOut'] = clientTimesOut
+            folderDict['clientFlow']['timesInRel'] = clientTimesInRel
+            folderDict['clientFlow']['timesOutRel'] = clientTimesOutRel
+            folderDict['clientFlow']['timesInAbs'] = clientTimesInAbs
+            folderDict['clientFlow']['timesOutAbs'] = clientTimesOutAbs
+            folderDict['clientFlow']['sizesIn'] = clientSizesIn
+            folderDict['clientFlow']['sizesOut'] = clientSizesOut
 
-        if onionUrl not in onionAddressData:
-            onionAddressData[onionUrl] = {'connectionIndex': 0}
+            folderDict['hsFlow'] = {}
+            folderDict['hsFlow']['timesIn'] = hsTimesIn
+            folderDict['hsFlow']['timesOut'] = hsTimesOut
+            folderDict['hsFlow']['timesInRel'] = hsTimesInRel
+            folderDict['hsFlow']['timesOutRel'] = hsTimesOutRel
+            folderDict['hsFlow']['timesInAbs'] = hsTimesInAbs
+            folderDict['hsFlow']['timesOutAbs'] = hsTimesOutAbs
+            folderDict['hsFlow']['sizesIn'] = hsSizesIn
+            folderDict['hsFlow']['sizesOut'] = hsSizesOut
 
-        countBothWays += 1
+            folderDict['hsFeatures'] = pickle.load(open(folderDict['hsFolder'] + '/statistical_features', 'rb'))
+            folderDict['clientFeatures'] = pickle.load(open(folderDict['clientFolder'] + '/statistical_features', 'rb'))
+
+            key = (origin, destination)
+            sessionIndex = int(connection.split('session_')[1].split('_')[0])
+            if key not in pairsFolders:
+                pairsFolders[key] = []
+
+            if sessionIndex >= len(pairsFolders[key]):
+                for i in range(len(pairsFolders[key]), sessionIndex + 1):
+                    pairsFolders[key].append([])
+            pairsFolders[key][sessionIndex] += [folderDict]
+
+            if onionUrl not in onionAddressData:
+                onionAddressData[onionUrl] = {'connectionIndex': 0}
+
+            countBothWays += 1
 
 
 def flattenList(list1):
@@ -1356,13 +1359,25 @@ def generateCorrelatedPairs(pairsFoldersInput):
 def extract_pairs_features():
     extract_features()
 
+    extract_pairs()
+
     testPairsFolders = shufflePairs(pairsFolders)
-    pickle.dump(alexaFolders, open("alexa_features.pickle", "wb" ))
+
+    print("--- len(testPairsFolders)", len(testPairsFolders))
+
+    full_pipeline_features_folder = "full_pipeline_features/"
+    if not os.path.exists(full_pipeline_features_folder):
+        os.makedirs(full_pipeline_features_folder)
+    pickle.dump(alexaFolders, open(full_pipeline_features_folder+"alexa_features.pickle", "wb" ))
 
     allPairs = {'correlated': {}}
-    saveFile = 'testPairs_{}'.format(dataset_name)
+    saveFile = 'testPairs_OSTest'
     samples, labels = generateCorrelatedPairs(testPairsFolders)
-    print('##############################3')
+
+    print("--- len(samples)", len(samples))
+    print("--- len(labels)", len(labels))
+
+    print('##############################')
     print('Correlated Pairs')
     print('Total number of pairs:', len(samples))
     allPairs['correlated']['samples'] = samples 

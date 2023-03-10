@@ -14,7 +14,7 @@ def RoundToNearest(n, m):
 def extract_features(captureFolder, arff_stats, arff_pl, written_header_stats, written_header_pl):
     
     for capture in os.listdir(captureFolder):
-        
+
         if '.pcap' not in capture:
             continue
 
@@ -1011,6 +1011,8 @@ def extract_features(captureFolder, arff_stats, arff_pl, written_header_stats, w
         arff_pl.write(', '.join(l))
         arff_pl.write('\n')
 
+    return written_header_stats, written_header_pl
+
 
 def extract_features_train(captures_folder, featureFolderTrain):
 
@@ -1031,6 +1033,7 @@ def extract_features_train(captures_folder, featureFolderTrain):
             continue
         if '.DS_Store' in innerCaptureFolder:
             continue
+
         for innerFolder2 in os.listdir(captures_folder + innerCaptureFolder):
             if '._' in innerFolder2:
                 continue
@@ -1038,7 +1041,7 @@ def extract_features_train(captures_folder, featureFolderTrain):
                 continue
             
             captureFolder = captures_folder+innerCaptureFolder+'/'+innerFolder2+'/'
-            extract_features(captureFolder, arff_stats, arff_pl, written_header_stats, written_header_pl)
+            written_header_stats, written_header_pl = extract_features(captureFolder, arff_stats, arff_pl, written_header_stats, written_header_pl)
 
     arff_stats.close()
     arff_pl.close()
@@ -1065,7 +1068,7 @@ def extract_features_test(captures_folder, featureFolderTest):
             continue
 
         captureFolder = captures_folder+innerCaptureFolder+'/'
-        extract_features(captureFolder, arff_stats, arff_pl, written_header_stats, written_header_pl)
+        written_header_stats, written_header_pl = extract_features(captureFolder, arff_stats, arff_pl, written_header_stats, written_header_pl)
 
     arff_stats.close()
     arff_pl.close()

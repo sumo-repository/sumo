@@ -19,7 +19,7 @@
 #define CL_HPP_TARGET_OPENCL_VERSION 200
 #include "opencl.hpp" // OpenCL Khronos C++ Wrapper API for Mac
 #include <omp.h>
-#include "subsetsum_aos.h"
+#include "subsetsum.h"
 
 #define OCL_CHECK(result, fn, ...) \
     if(((result) = (fn)) != CL_SUCCESS) { std::cerr << "[line " << __LINE__ << "]" << getErrorString(result) << std::endl; __VA_ARGS__ ; }
