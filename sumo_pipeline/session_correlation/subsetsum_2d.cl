@@ -25,18 +25,12 @@ void kernel outer_loop_subset_sum(
 {
     int thread_pair_id = get_global_id(0); // first dimension
     int thread_window_id = get_global_id(1); // second dimension
-    // TODO: This can be very problematic
+
     local bool lookup[LOOKUP_ARRAY_SIZE];
     int n_cols = LOOKUP_ARRAY_SIZE / buckets_per_window;
-    //printf("thread_window_id %d - thread_window_id %d\n", thread_pair_id, thread_window_id);
+
     // Since I have a fixed number of threads per pair of N_WINDOWS, I don't actually want to use the extra ones
-    //if (thread_window_id > n_windows[thread_pair_id] + 1) {
     if (thread_window_id > n_windows[thread_pair_id] - 1) {
-    //if (thread_window_id >= n_windows[thread_pair_id]) {
-        //printf("RETURNED thread_window_id: %d; n_windows[thread_pair_id]: %d\n", thread_window_id, n_windows[thread_pair_id]);
-        //if (thread_pair_id == 2 && thread_window_id == 0)   
-        //if (thread_pair_id == 1 && thread_window_id == 12) 
-        //printf("\nclient:(%d , %d); os:(%d , %d); thread_window_id: %d; thread_pair_id: %d, n_windows[thread_pair_id]: %d \n", windowed_client_nums[0], windowed_client_nums[1], windowed_os_nums[0], windowed_os_nums[1], thread_window_id, thread_pair_id, n_windows[thread_pair_id]);
         return;
     }
     int start_bucket_index = acc_windows[thread_pair_id] + get_bucket(thread_window_id, buckets_per_window, buckets_overlap, thread_pair_id);
@@ -44,7 +38,6 @@ void kernel outer_loop_subset_sum(
     for (int k = 0; k < buckets_per_window; k++) {
         windowed_client_nums[k] = client_nums_array[start_bucket_index + k];
         windowed_os_nums[k] = os_nums_array[start_bucket_index + k];
-        //printf("--- THREAD ID: client_nums_array[start_index + k]: %d; os_nums_array[start_index + k]: %d\n", client_nums_array[start_index + k], os_nums_array[start_index + k]);
     }
     int clientSum = 0;
     int osSum = 0;
@@ -53,27 +46,16 @@ void kernel outer_loop_subset_sum(
         clientSum += windowed_client_nums[k];
         osSum += windowed_os_nums[k];
     }
-    //printf("--- THREAD ID: clientSum: %d; osSum: %d\n", clientSum, osSum);
     if (clientSum == 0 && osSum == 0) {
         score[start_window_index] = 0;
-        //if (thread_pair_id == 2 && thread_window_id == 0)   
-        //if (thread_pair_id == 1 && thread_window_id == 12) 
-        //printf("\nScore 0 -> client:(%d , %d); os:(%d , %d); START BUCKET: %d; START WINDOWS: %d; thread_window_id: %d; thread_pair_id: %d \n", windowed_client_nums[0], windowed_client_nums[1], windowed_os_nums[0], windowed_os_nums[1], start_bucket_index, start_window_index, thread_window_id, thread_pair_id);
         return;  
     }
     else if (clientSum == 0 && osSum > 0) {
         score[start_window_index] = -1;
-        //printf("-1 A\n");
-        //if (thread_pair_id == 2 && thread_window_id == 0)   
-        //if (thread_pair_id == 1 && thread_window_id == 12)   
-        //printf("\nScore -1 -> client:(%d , %d); os:(%d , %d); START BUCKET: %d; START WINDOWS: %d; thread_window_id: %d; thread_pair_id: %d \n", windowed_client_nums[0], windowed_client_nums[1], windowed_os_nums[0], windowed_os_nums[1], start_bucket_index, start_window_index, thread_window_id, thread_pair_id);
         return;
     }
     else if (clientSum > 0 && osSum == 0) {
         score[start_window_index] = -1;
-        //if (thread_pair_id == 2 && thread_window_id == 0)   
-        //if (thread_pair_id == 1 && thread_window_id == 12) 
-        //printf("\nScore -1 -> client:(%d , %d); os:(%d , %d); START BUCKET: %d; START WINDOWS: %d; thread_window_id: %d; thread_pair_id: %d \n", windowed_client_nums[0], windowed_client_nums[1], windowed_os_nums[0], windowed_os_nums[1], start_bucket_index, start_window_index, thread_window_id, thread_pair_id);
         return;
     }
     else {
@@ -103,8 +85,6 @@ void kernel outer_loop_subset_sum(
             }
         }
 
-        //int start = clientSum - delta;
-        // TODO: CHANGE THIS IS JUST TO SEE IF RESULTS ARE THE SAME
         int start = clientSum - delta;
         int end = clientSum + delta;
 
@@ -112,9 +92,6 @@ void kernel outer_loop_subset_sum(
         set, then it has no solution */
         if ((start < 0 && end < 0) || (start > osSum && end > osSum)) {
             score[start_window_index] = -1;
-            //if (thread_pair_id == 2 && thread_window_id == 0)   
-            //if (thread_pair_id == 1 && thread_window_id == 12) 
-            //printf("\nScore -1 -> client:(%d , %d); os:(%d , %d); START BUCKET: %d; START WINDOWS: %d; thread_window_id: %d; thread_pair_id: %d \n", windowed_client_nums[0], windowed_client_nums[1], windowed_os_nums[0], windowed_os_nums[1], start_bucket_index, start_window_index, thread_window_id, thread_pair_id);
             return;
         }
 
@@ -137,15 +114,11 @@ void kernel outer_loop_subset_sum(
             int lookup_index = get_index(buckets_per_window - 1, j, n_cols);
             if (lookup[lookup_index] == 1) {
                 score[start_window_index] = 1;
-                //if (thread_pair_id == 2 && thread_window_id == 0)   
-                //if (thread_pair_id == 1 && thread_window_id == 12)   
-                //printf("\nScore 1 -> client:(%d , %d); os:(%d , %d); START BUCKET: %d; START WINDOWS: %d; thread_window_id: %d; thread_pair_id: %d \n", windowed_client_nums[0], windowed_client_nums[1], windowed_os_nums[0], windowed_os_nums[1], start_bucket_index, start_window_index, thread_window_id, thread_pair_id);
                 return;
             }
         }
         // If it reached here, then subset sum has no solution
         score[start_window_index] = -1;
-        //printf("\nScore -1 -> client:(%d , %d); os:(%d , %d); START BUCKET: %d; START WINDOWS: %d; thread_window_id: %d; thread_pair_id: %d \n", windowed_client_nums[0], windowed_client_nums[1], windowed_os_nums[0], windowed_os_nums[1], start_bucket_index, start_window_index, thread_window_id, thread_pair_id);
         return;
     }
 }

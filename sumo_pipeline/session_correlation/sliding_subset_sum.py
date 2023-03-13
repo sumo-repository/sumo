@@ -24,7 +24,7 @@ min_session_duration_debug = int(30 * 1000 / 500) # in buckets -> 20 seconds
 min_session_durations = np.arange(0, 25, 1)
 min_session_durations *= 60 # minutes to seconds
 
-deltas = [60]
+deltas = [128]
 thresholds = [-0.05]
 
 buckets_per_window = int(window_size / (timeSamplingInterval / 1000))

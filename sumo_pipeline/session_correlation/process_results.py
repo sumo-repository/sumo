@@ -27,6 +27,24 @@ def get_clients_windows_with_packets(possible_request_combinations, buckets_per_
     return windows_with_packets
 
 
+# TODO: CHANGE FOR EPOCHS REALTIME
+"""
+def calculate_overall_score(possible_request_combinations, database, buckets_per_window, buckets_overlap, epoch, delta):
+    windows_with_packets = get_clients_windows_with_packets(possible_request_combinations[epoch], buckets_per_window, buckets_overlap)
+    scores_per_session = {} # This variable is not needed, just easier to debug scores
+    score_counter = {}
+    for (clientSessionId, osSessionId), value in database[epoch][delta].items():
+        if (clientSessionId, osSessionId) not in score_counter:
+            score_counter[(clientSessionId, osSessionId)] = 0
+            scores_per_session[(clientSessionId, osSessionId)] = []
+        for window, score in value:
+            score_counter[(clientSessionId, osSessionId)] += score
+            scores_per_session[(clientSessionId, osSessionId)].append((window, score))
+    
+    return windows_with_packets, score_counter, scores_per_session
+"""
+
+
 def calculate_overall_score(possible_request_combinations, database, buckets_per_window, buckets_overlap):
     windows_with_packets = get_clients_windows_with_packets(possible_request_combinations, buckets_per_window, buckets_overlap)
     scores_per_session = {} # This variable is not needed, just easier to debug scores
