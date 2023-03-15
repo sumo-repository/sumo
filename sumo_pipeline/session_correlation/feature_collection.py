@@ -427,7 +427,7 @@ def process_features_epochs_sessions(testPairs, timeSamplingInterval, epoch_size
         maxAbsoluteTimeOnion = max(allAbsTimesOnion)
         
         os_rtts[sessionId] = {'rtts': [absoluteInitialTimeOnion, maxAbsoluteTimeOnion], 'yPacketBytesOutOnion': yPacketBytesOutOnion, 'yPacketTimesOutOnion': yPacketTimesOutOnion}
-        
+
         counter += 1
 
     print("=== Finished gathering data on correlated pairs {}".format(counter))
@@ -483,6 +483,11 @@ def process_features_epochs_sessions(testPairs, timeSamplingInterval, epoch_size
                         
                     yPacketCountOutOnionDict[bucket] += 1
                     yPacketBytesOutOnionDict[bucket] += os_rtts[osSessionId]['yPacketBytesOutOnion'][i]
+
+                    if clientSessionId == 'client-frankfurt-2-new_os-finland-1-new_biden6qccqo5iqzvnjgpivp3owp2v5xodgwenqdh5wsq7zzfhnvodjqd_session_149' and osSessionId == 'client-singapore-1-new_os-singapore-1-new_dse6rlfwpgdohd33ulg623rpzy3zv5y5whfw23jznd3xu4o47vy6xmqd_session_143':
+                        print("ts {}; relativeTs {}; bucket {}".format(ts, relativeTs, bucket))
+                if clientSessionId == 'client-frankfurt-2-new_os-finland-1-new_biden6qccqo5iqzvnjgpivp3owp2v5xodgwenqdh5wsq7zzfhnvodjqd_session_149' and osSessionId == 'client-singapore-1-new_os-singapore-1-new_dse6rlfwpgdohd33ulg623rpzy3zv5y5whfw23jznd3xu4o47vy6xmqd_session_143':
+                    print("yPacketCountOutOnionDict[bucket] {}".format(yPacketCountOutOnionDict[bucket]))
                 
                 # client
                 for i in range(0, len(client_rtts[clientSessionId]['yPacketTimesIn'])):

@@ -1,13 +1,3 @@
-/**
- * 
-    SubsetSum.cpp is a C++ implementation of a dynamic programming algorithm
-    for solving the subset sum problem. See ``https://en.wikipedia.org/wiki/
-    Subset_sum_problem#Pseudo-polynomial_time_dynamic_programming_solution''
-    @author Joseph Boyd
-    
-    Taken from ``https://github.com/jcboyd/study-no-2'' github repo
-*/
-
 #include <vector>
 #include <iomanip>
 #include <fstream>
@@ -34,9 +24,6 @@
 #define TIMER_DIFF_SECONDS(_start, _stop) \
     (((double)(_stop.tv_sec)  + (double)(_stop.tv_nsec / 1E9)) - \
      ((double)(_start.tv_sec) + (double)(_start.tv_nsec / 1E9)))
-// #define TIMER_DIFF_MILLISECONDS(_start, _stop) \
-//     (((double)(_stop.tv_sec * 1E3)  + (double)(_stop.tv_nsec / 1E6)) - \
-//      ((double)(_start.tv_sec * 1E3) + (double)(_start.tv_nsec / 1E6)))
 
 const char *getErrorString(cl_int error)
 {
@@ -178,9 +165,7 @@ extern "C"
         {
             total_buckets += n_buckets[i];
             total_windows += n_windows[i];
-            printf("n_windows[i]: %d\n", n_windows[i]);
         }
-        //printf("After total_buckets: %d - total_windows: %d\n", total_buckets, total_windows);
 
         printf("wholeLoopSubsetSum: nPairs=%i total_buckets=%i total_windows=%i delta=%i buckets_per_window=%i\n",
             nPairs, total_buckets, total_windows, delta, buckets_per_window);
@@ -191,7 +176,6 @@ extern "C"
         cl::Buffer accWindowsArray_d(context, CL_MEM_READ_ONLY, sizeof(int) * nPairs);
         
         TIMER_READ(t1);
-        //cl::Buffer scoresArray_d(context, CL_MEM_READ_WRITE, sizeof(int) * (sessionPairs[i].n_windows + 200));
         // write to a buffer object from host memory
         OCL_ERROR(result, queue.enqueueWriteBuffer(clientNumsArray_d, CL_TRUE, 0, sizeof(int) * total_buckets, client_nums_array));
         OCL_ERROR(result, queue.enqueueWriteBuffer(osNumsArray_d, CL_TRUE, 0, sizeof(int) * total_buckets, os_nums_array));
@@ -200,9 +184,6 @@ extern "C"
         
         outer_loop_subset_sum_kernel.setArg(0, clientNumsArray_d);
         outer_loop_subset_sum_kernel.setArg(1, osNumsArray_d);
-        // https://stackoverflow.com/questions/72113696/defining-size-of-array-using-clsetkernelarg
-        // OCL_ERROR(result, outer_loop_subset_sum_kernel.setArg(2, NULL));
-        // OCL_ERROR(result, outer_loop_subset_sum_kernel.setArg(3, NULL));
         OCL_ERROR(result, clSetKernelArg(outer_loop_subset_sum_kernel(), 2, sizeof(int) * buckets_per_window, NULL));
         OCL_ERROR(result, clSetKernelArg(outer_loop_subset_sum_kernel(), 3, sizeof(int) * buckets_per_window, NULL));
         outer_loop_subset_sum_kernel.setArg(4, delta);
@@ -213,22 +194,16 @@ extern "C"
         outer_loop_subset_sum_kernel.setArg(9, accWindowsArray_d);
 
         size_t global_work_size[2] = {(size_t)nPairs, N_WINDOWS};
-        //size_t global_work_size = 10;
         size_t local_work_size[2] = {1, 1};
-        //size_t local_work_size = 1;
 
-        //queue.enqueueNDRangeKernel(outer_loop_subset_sum_kernel, cl::NullRange, cl::NDRange(global_work_size), cl::NDRange(local_work_size));
         OCL_ERROR(result, clEnqueueNDRangeKernel(queue(), outer_loop_subset_sum_kernel(), 2, NULL, global_work_size, local_work_size, 0, NULL, NULL));
-        //clEnqueueNDRangeKernel(queue(), outer_loop_subset_sum_kernel(), 1, NULL, &global_work_size, &local_work_size, 0, NULL, NULL);
 
         // when the second arg is CL_TRUE, this function blocks until the threads finish, so no need to call finish()
         OCL_ERROR(result, queue.enqueueReadBuffer(scoresArray_d, CL_TRUE, 0, sizeof(int) * total_windows, scores));
         TIMER_READ(t2);
         printf("Pre-proc  subsetsum2d: %fs\n", TIMER_DIFF_SECONDS(t0, t1));
         printf("Exec time subsetsum2d: %fs\n", TIMER_DIFF_SECONDS(t1, t2));
-        //printf("scores[0]: %d\n", scores[0]);
-        //printf("scores[10]: %d\n", scores[10]);
-        //printf("scores[20]: %d\n", scores[20]);
+
         fflush(stdout); // TODO: prints to file are buggy
     }
 };

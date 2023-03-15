@@ -24,7 +24,7 @@ min_session_duration_debug = int(30 * 1000 / 500) # in buckets -> 20 seconds
 min_session_durations = np.arange(0, 25, 1)
 min_session_durations *= 60 # minutes to seconds
 
-deltas = [128]
+deltas = [60]
 thresholds = [-0.05]
 
 buckets_per_window = int(window_size / (timeSamplingInterval / 1000))
@@ -164,6 +164,8 @@ def run_windowed_subset_sum_on_all_pairs(delta, possible_request_combinations, c
                 database[key].append((j, scores[start].scores[j]))
                 databaseMultipleDeltas[(delta, clientSessionId, osSessionId)].append((j, scores[start].scores[j]))
 
+                if key == ('client-frankfurt-2-new_os-finland-1-new_biden6qccqo5iqzvnjgpivp3owp2v5xodgwenqdh5wsq7zzfhnvodjqd_session_149', 'client-singapore-1-new_os-singapore-1-new_dse6rlfwpgdohd33ulg623rpzy3zv5y5whfw23jznd3xu4o47vy6xmqd_session_143') and j == 439:
+                    print("\n\n######", possible_request_combinations[('client-frankfurt-2-new_os-finland-1-new_biden6qccqo5iqzvnjgpivp3owp2v5xodgwenqdh5wsq7zzfhnvodjqd_session_149', 'client-singapore-1-new_os-singapore-1-new_dse6rlfwpgdohd33ulg623rpzy3zv5y5whfw23jznd3xu4o47vy6xmqd_session_143')]) 
             counter += 1
 
     # OpenCL 2D implementation
@@ -260,15 +262,12 @@ def find_correlated_sessions(possible_request_combinations, clients_rtts, oses_r
         print("\n======================== Delta {} ========================\n".format(delta))
         
         database, databaseMultipleDeltas = run_windowed_subset_sum_on_all_pairs(delta, possible_request_combinations, clients_rtts, oses_rtts, session_buckets, session_windows)
-
+        pickle.dump(database, open("database1.pickle", 'wb'))
         # ---------------------- Calculate overall score ----------------------
         windows_with_packets, score_counter[delta], scores_per_session = process_results.calculate_overall_score(possible_request_combinations, database, buckets_per_window, buckets_overlap)
 
         print("=== After calculating overall score")
 
-        #print("***** score_counter", score_counter)
-        correlated_scores = []
-        uncorrelated_scores = []
         metricsMap = {}
         metricsMapFinalScores = {}
         metricsMapFinalScoresPerSession = {}
@@ -308,11 +307,6 @@ def find_correlated_sessions(possible_request_combinations, clients_rtts, oses_r
                 if clientSessionId not in metricsMapPerSessionPerClient[threshold]:
                     metricsMapPerSessionPerClient[threshold][clientSessionId] = {}
                 metricsMapPerSessionPerClient[threshold][clientSessionId][osSessionId] = final_score
-
-                if clientSessionId == osSessionId:
-                    correlated_scores.append(final_score)
-                else:
-                    uncorrelated_scores.append(final_score)
                 
                 if final_score >= threshold:
                     if clientSessionId == osSessionId:
@@ -450,4 +444,6 @@ def correlate_sessions(is_full_pipeline=False):
     session_buckets, session_windows = get_buckets_and_windows(possible_request_combinations)
     metricsMap, metricsMapFinalScores, metricsMapPerOS, metricsMapPerSessionPerClient, metricsMapFinalScoresPerSession = find_correlated_sessions(possible_request_combinations, clients_rtts, oses_rtts, session_buckets, session_windows, missed_client_flows_full_pipeline,
     missed_os_flows_full_pipeline)
-    evaluate(possible_request_combinations, clients_rtts, metricsMapFinalScores, metricsMapPerSessionPerClient, metricsMapFinalScoresPerSession, missed_client_flows_full_pipeline, missed_os_flows_full_pipeline)
+    results_by_min_duration, metricsMapFinalScores = evaluate(possible_request_combinations, clients_rtts, metricsMapFinalScores, metricsMapPerSessionPerClient, metricsMapFinalScoresPerSession, missed_client_flows_full_pipeline, missed_os_flows_full_pipeline)
+    print("results_by_min_duration", results_by_min_duration)
+    print("metricsMapFinalScores", metricsMapFinalScores)

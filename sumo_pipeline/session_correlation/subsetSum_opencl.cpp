@@ -1,13 +1,3 @@
-/**
- * 
-    SubsetSum.cpp is a C++ implementation of a dynamic programming algorithm
-    for solving the subset sum problem. See ``https://en.wikipedia.org/wiki/
-    Subset_sum_problem#Pseudo-polynomial_time_dynamic_programming_solution''
-    @author Joseph Boyd
-    
-    Taken from ``https://github.com/jcboyd/study-no-2'' github repo
-*/
-
 #include <vector>
 #include <iomanip>
 #include <fstream>
@@ -166,7 +156,6 @@ extern "C"
 
         int n_threads = 24;
         omp_set_num_threads(n_threads); // Hakone machine
-        // My mac has 6 cores
         //omp_set_num_threads(6); // my computer
         //omp_set_num_threads(1);
 
@@ -179,20 +168,13 @@ extern "C"
         int total_windows = 0;
         
         #pragma omp parallel
-        //#pragma omp parallel reduction(+:iteration)
         {
-            //iteration++;
             cl::Kernel inner_loop_subset_sum_kernel = cl::Kernel(program, "inner_loop_subset_sum");
             cl::CommandQueue queue(context, device);
             #pragma omp for reduction(+:counter,total_buckets,total_windows)
             for (i = 0; i < nPairs; i++) {
-                //counter++;
-                //std::cout << "---------- i ---------- " << i << ": " << omp_get_thread_num() << std::endl;
-                //std::cout << "sessionPairs[i].n_buckets " << sessionPairs[i].n_buckets << std::endl;
                 cl::Buffer clientNumsArray_d(context, CL_MEM_READ_ONLY, sizeof(int) * sessionPairs[i].n_buckets);
-                //std::cout << "sessionPairs[i].n_buckets 2 " << sessionPairs[i].n_buckets << std::endl;
                 cl::Buffer osNumsArray_d(context, CL_MEM_READ_ONLY, sizeof(int) * sessionPairs[i].n_buckets);
-                //std::cout << "sessionPairs[i].n_windows " << sessionPairs[i].n_windows << std::endl;
                 cl::Buffer scoresArray_d(context, CL_MEM_READ_WRITE, sizeof(int) * sessionPairs[i].n_windows);
                 // write to a buffer object from host memory
                 total_buckets += sessionPairs[i].n_buckets;
@@ -201,7 +183,6 @@ extern "C"
                 OCL_ERROR(result, queue.enqueueWriteBuffer(osNumsArray_d, CL_TRUE, 0, sizeof(int) * sessionPairs[i].n_buckets, sessionPairs[i].os_nums_array));
                 inner_loop_subset_sum_kernel.setArg(0, clientNumsArray_d);
                 inner_loop_subset_sum_kernel.setArg(1, osNumsArray_d);
-                // https://stackoverflow.com/questions/72113696/defining-size-of-array-using-clsetkernelarg
                 // windowed_client_nums
                 clSetKernelArg(inner_loop_subset_sum_kernel(), 2, sizeof(int) * buckets_per_window, NULL);
                 // windowed_os_nums
@@ -209,19 +190,15 @@ extern "C"
                 inner_loop_subset_sum_kernel.setArg(4, delta);
                 inner_loop_subset_sum_kernel.setArg(5, buckets_per_window);
                 inner_loop_subset_sum_kernel.setArg(6, sessionPairs[i].n_windows);
-                //inner_loop_subset_sum_kernel.setArg(6, sessionPairs[i].n_windows);
                 inner_loop_subset_sum_kernel.setArg(7, scoresArray_d);
                 int global = sessionPairs[i].n_windows;
-                //int global = {nPairs, sessionPairs[i].n_windows}
-                //int windows_per_thread = int(n_threads / sessionPairs[i].n_windows)
                 OCL_ERROR(result, queue.enqueueNDRangeKernel(inner_loop_subset_sum_kernel, cl::NullRange, cl::NDRange(global), cl::NDRange(1)));
                 OCL_ERROR(result, queue.enqueueReadBuffer(scoresArray_d, CL_FALSE, 0, sizeof(int) * sessionPairs[i].n_windows, scores[i].scores));
-                //OCL_ERROR(result, queue.enqueueReadBuffer(scoresArray_d, CL_TRUE, 0, sizeof(int) * sessionPairs[i].n_windows, scores[i].scores));
             }
             clFinish(queue());
 	    }
         printf("wholeLoopSubsetSum: nPairs=%i total_buckets=%i total_windows=%i delta=%i buckets_per_window=%i\n",
-            counter, total_buckets, total_windows, delta, buckets_per_window);
+            nPairs, total_buckets, total_windows, delta, buckets_per_window);
     } 
 };
 

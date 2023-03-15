@@ -5,6 +5,8 @@ __pycache__/
 
 # C extensions
 *.so
+*.o
+*_test.cpp
 
 # Distribution / packaging
 .Python
@@ -136,3 +138,15 @@ dmypy.json
 *results/
 *full_pipeline_features/
 *models/
+*features_train/
+*features_test/
+*.zip
+*OSTrain/
+*OSTest/
+*OSDeepLearn/
+*.txt
+*.pickle
+*testPairs_concurrency_allTraining_simulate_users_incomplete_v1_truncated_fixed_sessions
+*testPairs_OSTest
+*windowed_subset_sum_all_flows_epochs.py
+*results_graph_maker.py

@@ -48,7 +48,7 @@ def extract_client_data(data_folder):
         client_node = capture_folder_split[1]
         if len(capture_folder_split) > 2:
             client_node += capture_folder_split[2]
-        client_ip = '172.'
+        client_ip = "172.17.0.3"
 
         extract_traffic_features(capturePath, client_ip, "client")
     print()
@@ -64,7 +64,10 @@ def extract_onion_server_data(data_folder):
         if(".DS_Store" in onion_server_folder):
             continue
 
-        onion_ip = "172."
+        if("full-onion" in onion_server_folder):
+            continue
+
+        onion_ip = "172.17.0.2"
 
         for capture_folder in os.listdir(data_folder + "TrafficCapturesOnion/" + onion_server_folder):
             if '._' in capture_folder:
@@ -74,7 +77,7 @@ def extract_onion_server_data(data_folder):
             if 'file.log' in capture_folder:
                 continue
 
-            print("- " + data_folder + "TrafficCapturesOnion/" + onion_server_folder + "/" + capture_folder)
+            print("-> " + data_folder + "TrafficCapturesOnion/" + onion_server_folder + "/" + capture_folder)
             extract_traffic_features(data_folder + "TrafficCapturesOnion/" + onion_server_folder + "/" + capture_folder, onion_ip, "onion_server")
 
 
@@ -1023,7 +1026,7 @@ def extract_traffic_features(capture_folder, machine_ip, mode):
         for i in range(len(f_names_stats)):
             special_features[f_names_stats[i]] = f_values_stats[i]
 
-        special_features_file = open(extracted_features_folder + "special_features", "wb")
+        special_features_file = open(extracted_features_folder + "statistical_features", "wb")
         pickle.dump(special_features, special_features_file)
         special_features_file.close()
 
@@ -1113,11 +1116,10 @@ def store_alexa_features(connection):
             alexaFolders[key].append([])
     alexaFolders[key][sessionIndex] += [folderDict]
 
-    if onionUrl not in onionAddressData:
-        onionAddressData[onionUrl] = {'connectionIndex': 0}
-
 
 def extract_pairs():
+    global countBothWays
+
     count = 0
     #for locationIndex in tqdm.tqdm(listdir(clientPath)):
     for connection in tqdm.tqdm(listdir(clientPath)):
@@ -1132,7 +1134,7 @@ def extract_pairs():
         
             # Process alexa into another folder
             if 'alexa' in connection:
-                store_alexa_features(connection)
+                store_alexa_features(clientPath+connection)
                 continue
 
             count += 1
@@ -1143,11 +1145,13 @@ def extract_pairs():
             #print("locationIndex", locationIndex)
             
             origin = connection.split('_')[0]
-            origin_machine = origin.split('-client')[0]
+            #origin_machine = origin.split('client-')[1]
             destination = connection.split('_')[1]
             print("\norigin", origin)
             print("destination", destination)
-            destination_machine = 'os' + destination.split('-os')[1]
+            #destination_machine = 'os' + destination.split('os-')[1]
+            #print("\origin_machine", origin_machine)
+            #print("destination_machine", destination_machine)
             onionUrl = connection.split('_')[2]
             #size = connection.split('_')[3]
             #extraRequests = connection.split('_')[4]
@@ -1160,7 +1164,8 @@ def extract_pairs():
             hsEnding_part1 = hsEnding_part0.split("client")[0]
             hsEnding = hsEnding_part1 + "hs"
             #hsFolder = hsPath + "captures-" + originFolder + '/' + origin + '-' + destination + '/' + origin + '_' + destination + '_' + onionUrl + '_' + index + hsEnding
-            hsFolder = hsPath + "captures-" + originFolder + '/' + origin_machine + '-' + destination_machine + '/' + origin + '_' + destination + '_' + onionUrl + '_' + index + hsEnding
+            #hsFolder = hsPath + "captures-" + originFolder + '/' + origin_machine + '-' + destination_machine + '/' + origin + '_' + destination + '_' + onionUrl + '_' + index + hsEnding
+            hsFolder = hsPath + "captures-" + originFolder + '/' + origin + '-' + destination + '/' + origin + '_' + destination + '_' + onionUrl + '_' + index + hsEnding
             #hsFolder = hsPath + "captures-" + originFolder + '/' + origin + '-' + destination + '/' + origin + '_' + destination + '_' + onionUrl + '_' + size + '_' + extraRequests + '_' + index + hsEnding
 
             if(not isdir(hsFolder)):
@@ -1363,8 +1368,6 @@ def extract_pairs_features():
 
     testPairsFolders = shufflePairs(pairsFolders)
 
-    print("--- len(testPairsFolders)", len(testPairsFolders))
-
     full_pipeline_features_folder = "full_pipeline_features/"
     if not os.path.exists(full_pipeline_features_folder):
         os.makedirs(full_pipeline_features_folder)
@@ -1373,9 +1376,6 @@ def extract_pairs_features():
     allPairs = {'correlated': {}}
     saveFile = 'testPairs_OSTest'
     samples, labels = generateCorrelatedPairs(testPairsFolders)
-
-    print("--- len(samples)", len(samples))
-    print("--- len(labels)", len(labels))
 
     print('##############################')
     print('Correlated Pairs')
