@@ -1106,7 +1106,7 @@ def store_alexa_features(connection):
 
     folderDict['clientFeatures'] = pickle.load(open(folderDict['clientFolder'] + '/statistical_features', 'rb'))
 
-    key = connection
+    key = connection.split('/')[-1]
     sessionIndex = int(connection.split('session_')[1].split('_')[0])
     if key not in alexaFolders:
         alexaFolders[key] = []
@@ -1121,13 +1121,8 @@ def extract_pairs():
     global countBothWays
 
     count = 0
-    #for locationIndex in tqdm.tqdm(listdir(clientPath)):
     for connection in tqdm.tqdm(listdir(clientPath)):
-        #print("----> locationIndex:", locationIndex)
-        # Take care of .DS_Store files
-        #if isdir(clientPath+locationIndex):
         if isdir(clientPath+connection):
-            #for connection in tqdm.tqdm(listdir(clientPath+locationIndex)):
 
             if 'request' in connection:
                 continue
@@ -1139,23 +1134,13 @@ def extract_pairs():
 
             count += 1
             folderDict = {}
-            #clientFolder = clientPath + locationIndex + '/' + connection
             clientFolder = clientPath + '/' + connection
 
             #print("locationIndex", locationIndex)
             
             origin = connection.split('_')[0]
-            #origin_machine = origin.split('client-')[1]
             destination = connection.split('_')[1]
-            print("\norigin", origin)
-            print("destination", destination)
-            #destination_machine = 'os' + destination.split('os-')[1]
-            #print("\origin_machine", origin_machine)
-            #print("destination_machine", destination_machine)
             onionUrl = connection.split('_')[2]
-            #size = connection.split('_')[3]
-            #extraRequests = connection.split('_')[4]
-            #index = connection.split('_')[5]
             index = connection.split('_')[3]
 
             originFolder = origin.split("-")[1]
@@ -1163,10 +1148,7 @@ def extract_pairs():
             hsEnding_part0 = connection.split("_session")[1]
             hsEnding_part1 = hsEnding_part0.split("client")[0]
             hsEnding = hsEnding_part1 + "hs"
-            #hsFolder = hsPath + "captures-" + originFolder + '/' + origin + '-' + destination + '/' + origin + '_' + destination + '_' + onionUrl + '_' + index + hsEnding
-            #hsFolder = hsPath + "captures-" + originFolder + '/' + origin_machine + '-' + destination_machine + '/' + origin + '_' + destination + '_' + onionUrl + '_' + index + hsEnding
             hsFolder = hsPath + "captures-" + originFolder + '/' + origin + '-' + destination + '/' + origin + '_' + destination + '_' + onionUrl + '_' + index + hsEnding
-            #hsFolder = hsPath + "captures-" + originFolder + '/' + origin + '-' + destination + '/' + origin + '_' + destination + '_' + onionUrl + '_' + size + '_' + extraRequests + '_' + index + hsEnding
 
             if(not isdir(hsFolder)):
                 print("not dir:" , hsFolder)
@@ -1177,9 +1159,6 @@ def extract_pairs():
             folderDict['clientLocation'] = origin
             folderDict['hsLocation'] = destination
             folderDict['onionAddress'] = onionUrl
-            #folderDict['size'] = size
-            #folderDict['extraRequests'] = extraRequests
-            
 
             clientInitialTimeStamp = 0
             clientIn = 0

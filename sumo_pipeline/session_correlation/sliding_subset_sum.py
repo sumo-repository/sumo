@@ -31,6 +31,7 @@ buckets_per_window = int(window_size / (timeSamplingInterval / 1000))
 buckets_overlap = int(overlap / (timeSamplingInterval / 1000))
 
 
+#IS_2D_OPENCL_IMPL = True
 IS_2D_OPENCL_IMPL = False
 if IS_2D_OPENCL_IMPL == False:
     import subsetSumOpenCLWrapper as sliding_subset_sum
@@ -43,7 +44,6 @@ def pre_process(is_full_pipeline):
     datasetName = 'OSTest'
     testPairs = pickle.load(open('testPairs_{}'.format(datasetName), 'rb'))
 
-    is_full_pipeline = False
     if is_full_pipeline == True:
         datasetName += 'full_pipeline'
 
@@ -51,26 +51,50 @@ def pre_process(is_full_pipeline):
     clients_rtts_file = 'clients_rtts_{}.pickle'.format(datasetName)
     oses_rtts_file = 'oses_rtts_{}.pickle'.format(datasetName)
 
+    missed_client_flows_full_pipeline_file = "missed_client_flows_full_pipeline_{}.pickle".format(datasetName)
+    missed_os_flows_full_pipeline_file = "missed_os_flows_full_pipeline_{}.pickle".format(datasetName)
+
     # ---------------------- Data pre-processing ----------------------
-    if isfile(possible_request_combinations_file) and isfile(clients_rtts_file) and isfile(oses_rtts_file):
-        print("==== Gathering pre-processed data from file...")
-        possible_request_combinations = pickle.load(open(possible_request_combinations_file, "rb"))
-        clients_rtts = pickle.load(open(clients_rtts_file, "rb"))
-        oses_rtts = pickle.load(open(oses_rtts_file, "rb"))
-    else: 
-        if is_full_pipeline == False:
-            possible_request_combinations, clients_rtts, oses_rtts = feature_collection.process_features_epochs_sessions(testPairs, timeSamplingInterval, epoch_size, epoch_tolerance)
-        else:
-            possible_request_combinations, clients_rtts, oses_rtts, missed_client_flows_full_pipeline, missed_os_flows_full_pipeline = feature_collection.process_features_epochs_sessions_full_pipeline(testPairs, timeSamplingInterval, epoch_size, epoch_tolerance)
+    if is_full_pipeline == False:
+        if isfile(possible_request_combinations_file) and isfile(clients_rtts_file) and isfile(oses_rtts_file):
+            print("==== Gathering pre-processed data from file...")
+            possible_request_combinations = pickle.load(open(possible_request_combinations_file, "rb"))
+            clients_rtts = pickle.load(open(clients_rtts_file, "rb"))
+            oses_rtts = pickle.load(open(oses_rtts_file, "rb"))
+        else: 
+            if is_full_pipeline == False:
+                possible_request_combinations, clients_rtts, oses_rtts = feature_collection.process_features_epochs_sessions(testPairs, timeSamplingInterval, epoch_size, epoch_tolerance)
+            else:
+                possible_request_combinations, clients_rtts, oses_rtts, missed_client_flows_full_pipeline, missed_os_flows_full_pipeline = feature_collection.process_features_epochs_sessions_full_pipeline(testPairs, timeSamplingInterval, epoch_size, epoch_tolerance)
+                pickle.dump(missed_client_flows_full_pipeline, open(missed_client_flows_full_pipeline_file, 'wb'))
+                pickle.dump(missed_os_flows_full_pipeline, open(missed_os_flows_full_pipeline_file, 'wb'))
 
-        pickle.dump(possible_request_combinations, open(possible_request_combinations_file, 'wb'))
-        pickle.dump(clients_rtts, open(clients_rtts_file, 'wb'))
-        pickle.dump(oses_rtts, open(oses_rtts_file, 'wb'))
+            pickle.dump(possible_request_combinations, open(possible_request_combinations_file, 'wb'))
+            pickle.dump(clients_rtts, open(clients_rtts_file, 'wb'))
+            pickle.dump(oses_rtts, open(oses_rtts_file, 'wb'))
+    else:
+        if isfile(possible_request_combinations_file) and isfile(clients_rtts_file) and isfile(oses_rtts_file) and isfile(missed_client_flows_full_pipeline_file) and isfile(missed_os_flows_full_pipeline_file):
+            print("==== Gathering pre-processed data from file...")
+            possible_request_combinations = pickle.load(open(possible_request_combinations_file, "rb"))
+            clients_rtts = pickle.load(open(clients_rtts_file, "rb"))
+            oses_rtts = pickle.load(open(oses_rtts_file, "rb"))
+        else: 
+            if is_full_pipeline == False:
+                possible_request_combinations, clients_rtts, oses_rtts = feature_collection.process_features_epochs_sessions(testPairs, timeSamplingInterval, epoch_size, epoch_tolerance)
+            else:
+                possible_request_combinations, clients_rtts, oses_rtts, missed_client_flows_full_pipeline, missed_os_flows_full_pipeline = feature_collection.process_features_epochs_sessions_full_pipeline(testPairs, timeSamplingInterval, epoch_size, epoch_tolerance)
+                pickle.dump(missed_client_flows_full_pipeline, open(missed_client_flows_full_pipeline_file, 'wb'))
+                pickle.dump(missed_os_flows_full_pipeline, open(missed_os_flows_full_pipeline_file, 'wb'))
 
-
+            pickle.dump(possible_request_combinations, open(possible_request_combinations_file, 'wb'))
+            pickle.dump(clients_rtts, open(clients_rtts_file, 'wb'))
+            pickle.dump(oses_rtts, open(oses_rtts_file, 'wb'))
+    
     print("==== After pre-processing data")
 
     if is_full_pipeline == True:    
+        missed_client_flows_full_pipeline = pickle.load(open(missed_client_flows_full_pipeline_file, "rb"))
+        missed_os_flows_full_pipeline = pickle.load(open(missed_os_flows_full_pipeline_file, "rb"))
         return possible_request_combinations, clients_rtts, oses_rtts, missed_client_flows_full_pipeline, missed_os_flows_full_pipeline
     else:
         return possible_request_combinations, clients_rtts, oses_rtts, 0, 0
@@ -149,7 +173,7 @@ def run_windowed_subset_sum_on_all_pairs(delta, possible_request_combinations, c
             count_pairs += 1
 
         scores = sliding_subset_sum.whole_loop_subset_sum(packetListClients, packetListOSes, len(packetListClients), nBuckets, delta, buckets_per_window, buckets_overlap, nWindows)
-        
+
         counter = 0
         for start, (clientSessionId, osSessionId) in enumerate(possible_request_combinations.keys()):
             if start >= len(scores):
@@ -159,13 +183,10 @@ def run_windowed_subset_sum_on_all_pairs(delta, possible_request_combinations, c
                 if key not in database:
                     database[key] = []
                 deltaKey = (delta, clientSessionId, osSessionId)
-                if deltaKey not in databaseMultipleDeltas:
-                    databaseMultipleDeltas[deltaKey] = []
                 database[key].append((j, scores[start].scores[j]))
-                databaseMultipleDeltas[(delta, clientSessionId, osSessionId)].append((j, scores[start].scores[j]))
 
-                if key == ('client-frankfurt-2-new_os-finland-1-new_biden6qccqo5iqzvnjgpivp3owp2v5xodgwenqdh5wsq7zzfhnvodjqd_session_149', 'client-singapore-1-new_os-singapore-1-new_dse6rlfwpgdohd33ulg623rpzy3zv5y5whfw23jznd3xu4o47vy6xmqd_session_143') and j == 439:
-                    print("\n\n######", possible_request_combinations[('client-frankfurt-2-new_os-finland-1-new_biden6qccqo5iqzvnjgpivp3owp2v5xodgwenqdh5wsq7zzfhnvodjqd_session_149', 'client-singapore-1-new_os-singapore-1-new_dse6rlfwpgdohd33ulg623rpzy3zv5y5whfw23jznd3xu4o47vy6xmqd_session_143')]) 
+            if counter > 28000:
+                print("counter", counter)
             counter += 1
 
     # OpenCL 2D implementation
@@ -196,7 +217,6 @@ def run_windowed_subset_sum_on_all_pairs(delta, possible_request_combinations, c
 
         count_windows = 0
         for start, (clientSessionId, osSessionId) in enumerate(possible_request_combinations.keys()):
-            #windows = client_windows[clientSessionId]
             if start >= len(acc_windows):
                 continue
             for j in range(0, session_windows[(clientSessionId, osSessionId)]):
@@ -204,13 +224,12 @@ def run_windowed_subset_sum_on_all_pairs(delta, possible_request_combinations, c
                 if key not in database:
                     database[key] = []
                 deltaKey = (delta, clientSessionId, osSessionId)
-                if deltaKey not in databaseMultipleDeltas:
-                    databaseMultipleDeltas[deltaKey] = []
                 count_windows += 1
                 database[key].append((j, scores[acc_windows[start] + j]))
-                databaseMultipleDeltas[(delta, clientSessionId, osSessionId)].append((j, scores[acc_windows[start] + j]))
-
-    return database, databaseMultipleDeltas
+    
+    # TODO: I don't need this, I can calculate the score right away and use the yeld with this
+    print("before return database")
+    return database
 
 
 def fpr(mapEntry):
@@ -250,59 +269,35 @@ def f1_score(mapEntry):
 
 # ---------------------- Windowed subset sum ----------------------
 
-# The structure of each entry is (delta, clientSessionId, osSessionId): [(window1, score1), ... (windown, scoren)]
-databaseMultipleDeltas: Dict[Tuple[int, str, str], List[Tuple[int, int]]] = {} 
-score_counter = {}
 
-
-# print("nb deltas={}, {}".format(len(deltas), deltas))
 def find_correlated_sessions(possible_request_combinations, clients_rtts, oses_rtts, session_buckets, session_windows, missed_client_flows_full_pipeline, missed_os_flows_full_pipeline):
-    
+    score_counter = {}
+
     for delta in deltas:
         print("\n======================== Delta {} ========================\n".format(delta))
         
-        database, databaseMultipleDeltas = run_windowed_subset_sum_on_all_pairs(delta, possible_request_combinations, clients_rtts, oses_rtts, session_buckets, session_windows)
-        pickle.dump(database, open("database1.pickle", 'wb'))
+        database = run_windowed_subset_sum_on_all_pairs(delta, possible_request_combinations, clients_rtts, oses_rtts, session_buckets, session_windows)
+        print("***** after run_windowed_subset_sum_on_all_pairs")
         # ---------------------- Calculate overall score ----------------------
         windows_with_packets, score_counter[delta], scores_per_session = process_results.calculate_overall_score(possible_request_combinations, database, buckets_per_window, buckets_overlap)
-
+        
         print("=== After calculating overall score")
 
         metricsMap = {}
         metricsMapFinalScores = {}
-        metricsMapFinalScoresPerSession = {}
-        metricsMapScoreCounter = {}
-        metricsMapPerSessionPerOS = {}
         metricsMapPerSessionPerClient = {}
-        metricsMapPerOS = {}
-        metricsMapMoreSessions = {} # Just for debug
-        fpSessions = {}
 
         for threshold in thresholds:
             print("Evaluating threshold {}".format(threshold))
             metricsMap[threshold] = {'tp': 0, 'tn': 0, 'fp': 0, 'fn': missed_client_flows_full_pipeline + missed_os_flows_full_pipeline}
             metricsMapFinalScores[threshold] = {'tp': 0, 'tn': 0, 'fp': 0, 'fn': missed_client_flows_full_pipeline + missed_os_flows_full_pipeline}
-            metricsMapFinalScoresPerSession[threshold] = {}
-            metricsMapPerOS[threshold] = {}
-            metricsMapScoreCounter[threshold] = {'tp': [], 'tn': [], 'fp': [], 'fn': []}
-            metricsMapPerSessionPerOS[threshold] = {}
             metricsMapPerSessionPerClient[threshold] = {}
-            metricsMapMoreSessions[threshold] = {'tp': 0, 'tn': 0, 'fp': 0, 'fn': missed_client_flows_full_pipeline + missed_os_flows_full_pipeline, 'notEnoughRequests': 0}
-            fpSessions[threshold] = {}
             index = 0
             for key, value in score_counter[delta].items(): 
                 clientSessionId = key[0]
                 osSessionId = key[1]
                 
                 final_score = calculate_final_score(database[key]) / session_windows[key]
-                
-                
-                if len(possible_request_combinations[key]['yPacketCountOutOnion']) < min_session_duration_debug:
-                    metricsMapMoreSessions[threshold]['notEnoughRequests'] += 1
-                
-                if osSessionId not in metricsMapPerSessionPerOS[threshold]:
-                    metricsMapPerSessionPerOS[threshold][osSessionId] = {}
-                metricsMapPerSessionPerOS[threshold][osSessionId][clientSessionId] = final_score
                 
                 if clientSessionId not in metricsMapPerSessionPerClient[threshold]:
                     metricsMapPerSessionPerClient[threshold][clientSessionId] = {}
@@ -311,28 +306,14 @@ def find_correlated_sessions(possible_request_combinations, clients_rtts, oses_r
                 if final_score >= threshold:
                     if clientSessionId == osSessionId:
                         metricsMap[threshold]['tp'] += 1
-                        metricsMapScoreCounter[threshold]['tp'].append(score_counter[delta][key])
-                        if len(possible_request_combinations[key]['yPacketCountOutOnion']) >= min_session_duration_debug:
-                            metricsMapMoreSessions[threshold]['tp'] += 1
                     else:
                         metricsMap[threshold]['fp'] += 1
-                        metricsMapScoreCounter[threshold]['fp'].append(score_counter[delta][key])
-                        if len(possible_request_combinations[key]['yPacketCountOutOnion']) >= min_session_duration_debug:
-                            metricsMapMoreSessions[threshold]['fp'] += 1
                         
                 else:
                     if clientSessionId == osSessionId:
                         metricsMap[threshold]['fn'] += 1
-                        metricsMapScoreCounter[threshold]['fn'].append(score_counter[delta][key])
-                        if len(possible_request_combinations[key]['yPacketCountOutOnion']) >= min_session_duration_debug:
-                            metricsMapMoreSessions[threshold]['fn'] += 1
-
                     else:
                         metricsMap[threshold]['tn'] += 1
-                        metricsMapScoreCounter[threshold]['tn'].append(score_counter[delta][key])
-                        if len(possible_request_combinations[key]['yPacketCountOutOnion']) >= min_session_duration_debug:
-                            metricsMapMoreSessions[threshold]['tn'] += 1
-
 
             # Calculate precision, recall, f1-score, ...
             metricsMap[threshold]['precision'] = precision(metricsMap[threshold])
@@ -346,33 +327,19 @@ def find_correlated_sessions(possible_request_combinations, clients_rtts, oses_r
 
             client_sessions_with_highest_scores = process_results.count_client_correlated_sessions_highest_score(metricsMapPerSessionPerClient[threshold], threshold)
             for clientSessionId, osSessionId in possible_request_combinations.keys():
-                osName = osSessionId.split("_")[1]
-                if osName not in metricsMapPerOS[threshold]:
-                    metricsMapPerOS[threshold][osName] = {'tp': 0, 'tn': 0, 'fp': 0, 'fn': 0}
-                if osSessionId not in metricsMapFinalScoresPerSession[threshold]:
-                    metricsMapFinalScoresPerSession[threshold][osSessionId] = {'tp': 0, 'tn': 0, 'fp': 0, 'fn': 0}
 
                 if clientSessionId == osSessionId:
                     if client_sessions_with_highest_scores[clientSessionId]['correlatedHighestScore']:
-                        metricsMapFinalScoresPerSession[threshold][osSessionId]['tp'] += 1
                         metricsMapFinalScores[threshold]['tp'] += 1
-                        metricsMapPerOS[threshold][osName]['tp'] += 1
                     else:
-                        metricsMapFinalScoresPerSession[threshold][osSessionId]['fn'] += 1
                         metricsMapFinalScores[threshold]['fn'] += 1
-                        metricsMapPerOS[threshold][osName]['fn'] += 1
                 else:
                     if client_sessions_with_highest_scores[clientSessionId]['falseHighestScore'] and client_sessions_with_highest_scores[clientSessionId]['falseSession'] == osSessionId:
-                        metricsMapFinalScoresPerSession[threshold][osSessionId]['fp'] += 1
                         metricsMapFinalScores[threshold]['fp'] += 1
-                        metricsMapPerOS[threshold][osName]['fp'] += 1
                         key = (clientSessionId, osSessionId)
 
                     else:
-                        metricsMapFinalScoresPerSession[threshold][osSessionId]['tn'] += 1
                         metricsMapFinalScores[threshold]['tn'] += 1
-                        metricsMapPerOS[threshold][osName]['tn'] += 1
-        
 
             # Calculate precision, recall, f1-score, ...
             metricsMapFinalScores[threshold]['precision'] = precision(metricsMapFinalScores[threshold])
@@ -380,23 +347,15 @@ def find_correlated_sessions(possible_request_combinations, clients_rtts, oses_r
             metricsMapFinalScores[threshold]['fpr'] = fpr(metricsMapFinalScores[threshold])
             metricsMapFinalScores[threshold]['fnr'] = fnr(metricsMapFinalScores[threshold])
             metricsMapFinalScores[threshold]['f1-score'] = f1_score(metricsMapFinalScores[threshold])
-            
-            #print("metricsMapPerOS[threshold]", metricsMapPerOS[threshold])
-            for osName in metricsMapPerOS[threshold].keys():
-                metricsMapPerOS[threshold][osName]['precision'] = precision(metricsMapPerOS[threshold][osName])
-                metricsMapPerOS[threshold][osName]['recall'] = recall(metricsMapPerOS[threshold][osName])
-                metricsMapPerOS[threshold][osName]['fpr'] = fpr(metricsMapPerOS[threshold][osName])
-                metricsMapPerOS[threshold][osName]['fnr'] = fnr(metricsMapPerOS[threshold][osName])
-                metricsMapPerOS[threshold][osName]['f1-score'] = f1_score(metricsMapPerOS[threshold][osName])
 
-        return metricsMap, metricsMapFinalScores, metricsMapPerOS, metricsMapPerSessionPerClient, metricsMapFinalScoresPerSession
+        return metricsMapFinalScores, metricsMapPerSessionPerClient
 
 
 def get_session_duration(clients_rtts, clientSessionId):
     return clients_rtts[clientSessionId]['rtts'][1] - clients_rtts[clientSessionId]['rtts'][0] 
 
 
-def evaluate(possible_request_combinations, clients_rtts, metricsMapFinalScores, metricsMapPerSessionPerClient, metricsMapFinalScoresPerSession, missed_client_flows_full_pipeline, missed_os_flows_full_pipeline):
+def evaluate(possible_request_combinations, clients_rtts, metricsMapFinalScores, metricsMapPerSessionPerClient, missed_client_flows_full_pipeline, missed_os_flows_full_pipeline):
     results_by_min_duration = {}
     for threshold in thresholds:
         results_by_min_duration[threshold] = {}
@@ -441,9 +400,13 @@ def evaluate(possible_request_combinations, clients_rtts, metricsMapFinalScores,
 
 def correlate_sessions(is_full_pipeline=False):
     possible_request_combinations, clients_rtts, oses_rtts, missed_client_flows_full_pipeline, missed_os_flows_full_pipeline = pre_process(is_full_pipeline)
+    print("****** get_buckets_and_windows")
     session_buckets, session_windows = get_buckets_and_windows(possible_request_combinations)
-    metricsMap, metricsMapFinalScores, metricsMapPerOS, metricsMapPerSessionPerClient, metricsMapFinalScoresPerSession = find_correlated_sessions(possible_request_combinations, clients_rtts, oses_rtts, session_buckets, session_windows, missed_client_flows_full_pipeline,
+    print("****** find_correlated_sessions")
+    metricsMapFinalScores, metricsMapPerSessionPerClient = find_correlated_sessions(possible_request_combinations, clients_rtts, oses_rtts, session_buckets, session_windows, missed_client_flows_full_pipeline,
     missed_os_flows_full_pipeline)
+    print("****** evaluate")
     results_by_min_duration, metricsMapFinalScores = evaluate(possible_request_combinations, clients_rtts, metricsMapFinalScores, metricsMapPerSessionPerClient, metricsMapFinalScoresPerSession, missed_client_flows_full_pipeline, missed_os_flows_full_pipeline)
+    print("****** before prints")
     print("results_by_min_duration", results_by_min_duration)
     print("metricsMapFinalScores", metricsMapFinalScores)

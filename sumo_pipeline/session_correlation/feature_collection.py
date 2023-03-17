@@ -173,15 +173,10 @@ def process_features_epochs_sessions_full_pipeline(testPairs, timeSamplingInterv
     missed_client_flows_full_pipeline = 0
     missed_os_flows_full_pipeline = 0
 
-    #alexa_features = pickle.load(open('/Volumes/TOSHIBA_EXT/datasets_new/cnns_datasets_new/allTraining/alexa_allTraining_simulate_users_incomplete_v1_truncated_fixed_sessions_full_pipeline'), 'rb')
-    #client_flows_full_pipeline = pickle.load(open('../../client_classifier/outputClientFeatures_XGBoost'), 'rb')
-    alexa_features = pickle.load(open('alexa_allTraining_simulate_users_incomplete_v1_truncated_fixed_sessions_full_pipeline', 'rb'))
-    #client_flows_full_pipeline = pickle.load(open('outputClientFeatures_XGBoost', 'rb'))
-    #client_flows_full_pipeline = pickle.load(open('outputClientFeatures_XGBoost_thr_0.9', 'rb'))
-    #client_flows_full_pipeline = pickle.load(open('outputClientFeatures_january_thr_0.9999', 'rb'))
-    client_flows_full_pipeline = pickle.load(open('outputClientFeatures_january_thr_0.9995', 'rb'))
-    #client_flows_full_pipeline = pickle.load(open('outputClientFeatures_XGBoost_thr_0.99243695', 'rb'))
-    os_flows_full_pipeline = pickle.load(open('outputOSFeatures_os_classifier_xgboost', 'rb'))
+    full_pipeline_features_folder = 'full_pipeline_features/'
+    alexa_features = pickle.load(open(full_pipeline_features_folder+'alexa_features.pickle', 'rb'))
+    os_flows_full_pipeline = pickle.load(open('../source_separation/full_pipeline_features/os_features_source_separation_thr_0.9.pickle', 'rb'))
+    client_flows_full_pipeline = pickle.load(open('../target_separation/full_pipeline_features/client_features_target_separation_thr_0.9.pickle', 'rb'))
 
     # absolute initial and final tses of the whole experience
     initial_ts_experience, last_ts_experience, buckets_clients, buckets_oses = getTsesAndBucketsEpochsSessions(testPairs, timeSamplingInterval)
@@ -210,10 +205,7 @@ def process_features_epochs_sessions_full_pipeline(testPairs, timeSamplingInterv
             missed_os_flows_full_pipeline += 1
             continue
 
-        yPacketBytesInDict =  {}
         yPacketCountInDict = {}
-        for bucket in buckets_clients[sessionId]['buckets']:
-            yPacketBytesInDict[bucket] = 0
         for bucket in buckets_clients[sessionId]['buckets']:
             yPacketCountInDict[bucket] = 0
 
@@ -225,29 +217,25 @@ def process_features_epochs_sessions_full_pipeline(testPairs, timeSamplingInterv
             bucket = relativeTs * 1000 // timeSamplingInterval
             
             yPacketCountInDict[bucket] += 1
-            yPacketBytesInDict[bucket] += testPair['clientFlow']['sizesIn'][i]
 
-        yPacketBytesIn = list(yPacketBytesInDict.values())
         yPacketCountIn = list(yPacketCountInDict.values())
 
         allAbsTimes = testPair['clientFlow']['timesOutAbs'] + testPair['clientFlow']['timesInAbs']
         absoluteInitialTime = min(allAbsTimes)
         maxAbsoluteTime = max(allAbsTimes)
 
-        client_rtts[sessionId] = {'rtts': [absoluteInitialTime, maxAbsoluteTime], 'yPacketBytesIn': yPacketBytesIn, 'yPacketCountIn': yPacketCountIn, 'yPacketTimesIn': testPair['clientFlow']['timesInAbs']}
+        client_rtts[sessionId] = {'rtts': [absoluteInitialTime, maxAbsoluteTime], 'yPacketCountIn': yPacketCountIn, 'yPacketTimesIn': testPair['clientFlow']['timesInAbs']}
 
         # onion part
-        yPacketBytesOutOnion = []
         yPacketTimesOutOnion = []
         for i in range(0, len(testPair['hsFlow']['sizesOut'])):
-            yPacketBytesOutOnion.append(testPair['hsFlow']['sizesOut'][i])
             yPacketTimesOutOnion.append(testPair['hsFlow']['timesOutAbs'][i])
 
         allAbsTimesOnion = testPair['hsFlow']['timesOutAbs'] + testPair['hsFlow']['timesInAbs']
         absoluteInitialTimeOnion = min(allAbsTimesOnion)
         maxAbsoluteTimeOnion = max(allAbsTimesOnion)
         
-        os_rtts[sessionId] = {'rtts': [absoluteInitialTimeOnion, maxAbsoluteTimeOnion], 'yPacketBytesOutOnion': yPacketBytesOutOnion, 'yPacketTimesOutOnion': yPacketTimesOutOnion}
+        os_rtts[sessionId] = {'rtts': [absoluteInitialTimeOnion, maxAbsoluteTimeOnion], 'yPacketTimesOutOnion': yPacketTimesOutOnion}
         
         counter += 1
 
@@ -262,16 +250,14 @@ def process_features_epochs_sessions_full_pipeline(testPairs, timeSamplingInterv
 
             key = alexaFlow.split(".pcap")[0]
             key = key.strip()
+
             for innerFolder in alexa_features[key]:
                 if len(innerFolder) > 0:
                     for alexa_feature in innerFolder:
                         clientCapture = alexa_feature['clientFolder'].split("/")[-1]   
                         sessionId = clientCapture.split("_client")[0]
                         
-                        yPacketBytesInDict =  {}
                         yPacketCountInDict = {}
-                        for bucket in buckets_alexa[sessionId]['buckets']:
-                            yPacketBytesInDict[bucket] = 0
                         for bucket in buckets_alexa[sessionId]['buckets']:
                             yPacketCountInDict[bucket] = 0
 
@@ -283,16 +269,14 @@ def process_features_epochs_sessions_full_pipeline(testPairs, timeSamplingInterv
                             bucket = relativeTs * 1000 // timeSamplingInterval
                             
                             yPacketCountInDict[bucket] += 1
-                            yPacketBytesInDict[bucket] += alexa_feature['clientFlow']['sizesIn'][i]
 
-                        yPacketBytesIn = list(yPacketBytesInDict.values())
                         yPacketCountIn = list(yPacketCountInDict.values())
 
                         allAbsTimes = alexa_feature['clientFlow']['timesOutAbs'] + alexa_feature['clientFlow']['timesInAbs']
                         absoluteInitialTime = min(allAbsTimes)
                         maxAbsoluteTime = max(allAbsTimes)
 
-                        client_rtts[sessionId] = {'rtts': [absoluteInitialTime, maxAbsoluteTime], 'yPacketBytesIn': yPacketBytesIn, 'yPacketCountIn': yPacketCountIn, 'yPacketTimesIn': alexa_feature['clientFlow']['timesInAbs']}
+                        client_rtts[sessionId] = {'rtts': [absoluteInitialTime, maxAbsoluteTime], 'yPacketCountIn': yPacketCountIn, 'yPacketTimesIn': alexa_feature['clientFlow']['timesInAbs']}
                         if 'alexa' in alexaFlow:
                             buckets_clients[sessionId] = buckets_alexa[sessionId]
     print("alexa_counter", alexa_counter)
@@ -331,14 +315,10 @@ def process_features_epochs_sessions_full_pipeline(testPairs, timeSamplingInterv
                 final_session_ts = max(buckets_clients[clientSessionId]['finalTs'], buckets_oses[osSessionId]['finalTs'])
                 buckets_session = generateBucketsEpochs(initial_session_ts, final_session_ts, timeSamplingInterval)
 
-                yPacketBytesOutOnionDict =  {}
                 yPacketCountOutOnionDict = {}
-                yPacketBytesInDict =  {}
                 yPacketCountInDict = {}
                 for bucket in buckets_session:
-                    yPacketBytesOutOnionDict[bucket] = 0
                     yPacketCountOutOnionDict[bucket] = 0
-                    yPacketBytesInDict[bucket] = 0
                     yPacketCountInDict[bucket] = 0
                 
 
@@ -350,7 +330,6 @@ def process_features_epochs_sessions_full_pipeline(testPairs, timeSamplingInterv
                     bucket = relativeTs * 1000 // timeSamplingInterval
                         
                     yPacketCountOutOnionDict[bucket] += 1
-                    yPacketBytesOutOnionDict[bucket] += os_rtts[osSessionId]['yPacketBytesOutOnion'][i]
                 
                 # client
                 for i in range(0, len(client_rtts[clientSessionId]['yPacketTimesIn'])):
@@ -363,8 +342,8 @@ def process_features_epochs_sessions_full_pipeline(testPairs, timeSamplingInterv
 
 
                 # Here we place only the bucket range from the OS that makes sense to compare with the client
-                possible_request_combinations[key] = {'yPacketBytesOutOnion': list(yPacketBytesOutOnionDict.values()), 'yPacketCountOutOnion': list(yPacketCountOutOnionDict.values()), \
-                                                        'yPacketBytesIn': list(yPacketBytesInDict.values()), 'yPacketCountIn': list(yPacketCountInDict.values()), 'label': label}
+                possible_request_combinations[key] = {'yPacketCountOutOnion': list(yPacketCountOutOnionDict.values()), \
+                                                        'yPacketCountIn': list(yPacketCountInDict.values()), 'label': label}
 
         counter += 1
 
@@ -389,10 +368,7 @@ def process_features_epochs_sessions(testPairs, timeSamplingInterval, epoch_size
         clientCapture = testPair['clientFolder'].split("/")[-1]   
         sessionId = clientCapture.split("_client")[0]
 
-        yPacketBytesInDict =  {}
         yPacketCountInDict = {}
-        for bucket in buckets_clients[sessionId]['buckets']:
-            yPacketBytesInDict[bucket] = 0
         for bucket in buckets_clients[sessionId]['buckets']:
             yPacketCountInDict[bucket] = 0
 
@@ -404,29 +380,25 @@ def process_features_epochs_sessions(testPairs, timeSamplingInterval, epoch_size
             bucket = relativeTs * 1000 // timeSamplingInterval
             
             yPacketCountInDict[bucket] += 1
-            yPacketBytesInDict[bucket] += testPair['clientFlow']['sizesIn'][i]
 
-        yPacketBytesIn = list(yPacketBytesInDict.values())
         yPacketCountIn = list(yPacketCountInDict.values())
 
         allAbsTimes = testPair['clientFlow']['timesOutAbs'] + testPair['clientFlow']['timesInAbs']
         absoluteInitialTime = min(allAbsTimes)
         maxAbsoluteTime = max(allAbsTimes)
 
-        client_rtts[sessionId] = {'rtts': [absoluteInitialTime, maxAbsoluteTime], 'yPacketBytesIn': yPacketBytesIn, 'yPacketCountIn': yPacketCountIn, 'yPacketTimesIn': testPair['clientFlow']['timesInAbs']}
+        client_rtts[sessionId] = {'rtts': [absoluteInitialTime, maxAbsoluteTime], 'yPacketCountIn': yPacketCountIn, 'yPacketTimesIn': testPair['clientFlow']['timesInAbs']}
 
         # onion part
-        yPacketBytesOutOnion = []
         yPacketTimesOutOnion = []
         for i in range(0, len(testPair['hsFlow']['sizesOut'])):
-            yPacketBytesOutOnion.append(testPair['hsFlow']['sizesOut'][i])
             yPacketTimesOutOnion.append(testPair['hsFlow']['timesOutAbs'][i])
 
         allAbsTimesOnion = testPair['hsFlow']['timesOutAbs'] + testPair['hsFlow']['timesInAbs']
         absoluteInitialTimeOnion = min(allAbsTimesOnion)
         maxAbsoluteTimeOnion = max(allAbsTimesOnion)
         
-        os_rtts[sessionId] = {'rtts': [absoluteInitialTimeOnion, maxAbsoluteTimeOnion], 'yPacketBytesOutOnion': yPacketBytesOutOnion, 'yPacketTimesOutOnion': yPacketTimesOutOnion}
+        os_rtts[sessionId] = {'rtts': [absoluteInitialTimeOnion, maxAbsoluteTimeOnion], 'yPacketTimesOutOnion': yPacketTimesOutOnion}
 
         counter += 1
 
@@ -464,14 +436,10 @@ def process_features_epochs_sessions(testPairs, timeSamplingInterval, epoch_size
                 final_session_ts = max(buckets_clients[clientSessionId]['finalTs'], buckets_oses[osSessionId]['finalTs'])
                 buckets_session = generateBucketsEpochs(initial_session_ts, final_session_ts, timeSamplingInterval)
 
-                yPacketBytesOutOnionDict =  {}
                 yPacketCountOutOnionDict = {}
-                yPacketBytesInDict =  {}
                 yPacketCountInDict = {}
                 for bucket in buckets_session:
-                    yPacketBytesOutOnionDict[bucket] = 0
                     yPacketCountOutOnionDict[bucket] = 0
-                    yPacketBytesInDict[bucket] = 0
                     yPacketCountInDict[bucket] = 0
                 
                 # onion
@@ -482,7 +450,6 @@ def process_features_epochs_sessions(testPairs, timeSamplingInterval, epoch_size
                     bucket = relativeTs * 1000 // timeSamplingInterval
                         
                     yPacketCountOutOnionDict[bucket] += 1
-                    yPacketBytesOutOnionDict[bucket] += os_rtts[osSessionId]['yPacketBytesOutOnion'][i]
 
                     if clientSessionId == 'client-frankfurt-2-new_os-finland-1-new_biden6qccqo5iqzvnjgpivp3owp2v5xodgwenqdh5wsq7zzfhnvodjqd_session_149' and osSessionId == 'client-singapore-1-new_os-singapore-1-new_dse6rlfwpgdohd33ulg623rpzy3zv5y5whfw23jznd3xu4o47vy6xmqd_session_143':
                         print("ts {}; relativeTs {}; bucket {}".format(ts, relativeTs, bucket))
@@ -500,8 +467,8 @@ def process_features_epochs_sessions(testPairs, timeSamplingInterval, epoch_size
         
 
                 # Here we place only the bucket range from the OS that makes sense to compare with the client
-                possible_request_combinations[key] = {'yPacketBytesOutOnion': list(yPacketBytesOutOnionDict.values()), 'yPacketCountOutOnion': list(yPacketCountOutOnionDict.values()), \
-                                                        'yPacketBytesIn': list(yPacketBytesInDict.values()), 'yPacketCountIn': list(yPacketCountInDict.values()), 'label': label}
+                possible_request_combinations[key] = {'yPacketCountOutOnion': list(yPacketCountOutOnionDict.values()), \
+                                                        'yPacketCountIn': list(yPacketCountInDict.values()), 'label': label}
 
         counter += 1
 
@@ -528,10 +495,7 @@ def process_features_epochs_requests(testPairs, timeSamplingInterval, epoch_size
         sessionId = clientCapture.split("_request")[0]
         onionCapture = testPair['hsFolder'].split("/")[-1]
 
-        yPacketBytesInDict =  {}
         yPacketCountInDict = {}
-        for bucket in buckets_clients[sessionId]['buckets']:
-            yPacketBytesInDict[bucket] = 0
         for bucket in buckets_clients[sessionId]['buckets']:
             yPacketCountInDict[bucket] = 0
 
@@ -543,9 +507,7 @@ def process_features_epochs_requests(testPairs, timeSamplingInterval, epoch_size
             bucket = relativeTs * 1000 // timeSamplingInterval
             
             yPacketCountInDict[bucket] += 1
-            yPacketBytesInDict[bucket] += testPair['clientFlow']['sizesIn'][i]
 
-        yPacketBytesIn = list(yPacketBytesInDict.values())
         yPacketCountIn = list(yPacketCountInDict.values())
 
         allAbsTimes = testPair['clientFlow']['timesOutAbs'] + testPair['clientFlow']['timesInAbs']
@@ -553,20 +515,17 @@ def process_features_epochs_requests(testPairs, timeSamplingInterval, epoch_size
         maxAbsoluteTime = max(allAbsTimes)
 
         if sessionId not in client_rtts:
-            client_rtts[sessionId] = {'rtts': [absoluteInitialTime, maxAbsoluteTime], 'yPacketBytesIn': yPacketBytesIn, 'yPacketCountIn': yPacketCountIn, 'requestIds': [clientCapture], 'yPacketTimesIn': testPair['clientFlow']['timesInAbs']}
+            client_rtts[sessionId] = {'rtts': [absoluteInitialTime, maxAbsoluteTime], 'yPacketCountIn': yPacketCountIn, 'requestIds': [clientCapture], 'yPacketTimesIn': testPair['clientFlow']['timesInAbs']}
         else:
             if clientCapture not in client_rtts[sessionId]['requestIds']:
                 client_rtts[sessionId]['rtts'] += [absoluteInitialTime, maxAbsoluteTime]
-                client_rtts[sessionId]['yPacketBytesIn'] = np.add(client_rtts[sessionId]['yPacketBytesIn'], yPacketBytesIn)
                 client_rtts[sessionId]['yPacketCountIn'] = np.add(client_rtts[sessionId]['yPacketCountIn'], yPacketCountIn)
                 client_rtts[sessionId]['requestIds'] += [clientCapture]
                 client_rtts[sessionId]['yPacketTimesIn'] += testPair['clientFlow']['timesInAbs']
 
         # onion part
-        yPacketBytesOutOnion = []
         yPacketTimesOutOnion = []
         for i in range(0, len(testPair['hsFlow']['sizesOut'])):
-            yPacketBytesOutOnion.append(testPair['hsFlow']['sizesOut'][i])
             yPacketTimesOutOnion.append(testPair['hsFlow']['timesOutAbs'][i])
 
         allAbsTimesOnion = testPair['hsFlow']['timesOutAbs'] + testPair['hsFlow']['timesInAbs']
@@ -574,11 +533,10 @@ def process_features_epochs_requests(testPairs, timeSamplingInterval, epoch_size
         maxAbsoluteTimeOnion = max(allAbsTimesOnion)
         
         if sessionId not in os_rtts:
-            os_rtts[sessionId] = {'rtts': [absoluteInitialTimeOnion, maxAbsoluteTimeOnion], 'yPacketBytesOutOnion': yPacketBytesOutOnion, 'yPacketTimesOutOnion': yPacketTimesOutOnion, 'requestIds': [onionCapture]}
+            os_rtts[sessionId] = {'rtts': [absoluteInitialTimeOnion, maxAbsoluteTimeOnion], 'yPacketTimesOutOnion': yPacketTimesOutOnion, 'requestIds': [onionCapture]}
         else:
             if onionCapture not in os_rtts[sessionId]['requestIds']:
                 os_rtts[sessionId]['rtts'] += [absoluteInitialTimeOnion, maxAbsoluteTimeOnion]
-                os_rtts[sessionId]['yPacketBytesOutOnion'] += yPacketBytesOutOnion
                 os_rtts[sessionId]['yPacketTimesOutOnion'] += yPacketTimesOutOnion
                 os_rtts[sessionId]['requestIds'] += [onionCapture]
 
@@ -619,14 +577,10 @@ def process_features_epochs_requests(testPairs, timeSamplingInterval, epoch_size
                 final_session_ts = max(buckets_clients[clientSessionId]['finalTs'], buckets_oses[osSessionId]['finalTs'])
                 buckets_session = generateBucketsEpochs(initial_session_ts, final_session_ts, timeSamplingInterval)
 
-                yPacketBytesOutOnionDict =  {}
                 yPacketCountOutOnionDict = {}
-                yPacketBytesInDict =  {}
                 yPacketCountInDict = {}
                 for bucket in buckets_session:
-                    yPacketBytesOutOnionDict[bucket] = 0
                     yPacketCountOutOnionDict[bucket] = 0
-                    yPacketBytesInDict[bucket] = 0
                     yPacketCountInDict[bucket] = 0
                 
 
@@ -638,7 +592,6 @@ def process_features_epochs_requests(testPairs, timeSamplingInterval, epoch_size
                     bucket = relativeTs * 1000 // timeSamplingInterval
                         
                     yPacketCountOutOnionDict[bucket] += 1
-                    yPacketBytesOutOnionDict[bucket] += os_rtts[osSessionId]['yPacketBytesOutOnion'][i]
                 
                 # client
                 for i in range(0, len(client_rtts[clientSessionId]['yPacketTimesIn'])):
@@ -648,12 +601,10 @@ def process_features_epochs_requests(testPairs, timeSamplingInterval, epoch_size
                     bucket = relativeTs * 1000 // timeSamplingInterval
                         
                     yPacketCountInDict[bucket] += 1
-                    # TODO: fix this, these should be the orginal bytes received in the features, not the bucketed ones
-                    #yPacketBytesInDict[bucket] += client_rtts[clientSessionId]['yPacketBytesIn'][i]
 
                 # Here we place only the bucket range from the OS that makes sense to compare with the client
-                possible_request_combinations[key] = {'yPacketBytesOutOnion': list(yPacketBytesOutOnionDict.values()), 'yPacketCountOutOnion': list(yPacketCountOutOnionDict.values()), \
-                                                        'yPacketBytesIn': list(yPacketBytesInDict.values()), 'yPacketCountIn': list(yPacketCountInDict.values()), 'label': label}
+                possible_request_combinations[key] = {'yPacketCountOutOnion': list(yPacketCountOutOnionDict.values()), \
+                                                        'yPacketCountIn': list(yPacketCountInDict.values()), 'label': label}
 
         counter += 1
 
@@ -679,11 +630,7 @@ def process_features_epochs_requests_test_deepcoffea_our_dataset_march(testPairs
         requestId = clientCapture.split("_client")[0]
         onionCapture = testPair['hsFolder'].split("/")[-1]
 
-        yPacketBytesInDict =  {}
         yPacketCountInDict = {}
-
-        for bucket in buckets_clients[requestId]['buckets']:
-            yPacketBytesInDict[bucket] = 0
         for bucket in buckets_clients[requestId]['buckets']:
             yPacketCountInDict[bucket] = 0
 
@@ -695,29 +642,25 @@ def process_features_epochs_requests_test_deepcoffea_our_dataset_march(testPairs
             bucket = relativeTs * 1000 // timeSamplingInterval
             
             yPacketCountInDict[bucket] += 1
-            yPacketBytesInDict[bucket] += testPair['clientFlow']['sizesIn'][i]
 
-        yPacketBytesIn = list(yPacketBytesInDict.values())
         yPacketCountIn = list(yPacketCountInDict.values())
 
         allAbsTimes = testPair['clientFlow']['timesOutAbs'] + testPair['clientFlow']['timesInAbs']
         absoluteInitialTime = min(allAbsTimes)
         maxAbsoluteTime = max(allAbsTimes)
 
-        client_rtts[requestId] = {'rtts': [absoluteInitialTime, maxAbsoluteTime], 'yPacketBytesIn': yPacketBytesIn, 'yPacketCountIn': yPacketCountIn, 'requestIds': [clientCapture], 'yPacketTimesIn': testPair['clientFlow']['timesInAbs']}
+        client_rtts[requestId] = {'rtts': [absoluteInitialTime, maxAbsoluteTime], 'yPacketCountIn': yPacketCountIn, 'requestIds': [clientCapture], 'yPacketTimesIn': testPair['clientFlow']['timesInAbs']}
 
         # onion part
-        yPacketBytesOutOnion = []
         yPacketTimesOutOnion = []
         for i in range(0, len(testPair['hsFlow']['sizesOut'])):
-            yPacketBytesOutOnion.append(testPair['hsFlow']['sizesOut'][i])
             yPacketTimesOutOnion.append(testPair['hsFlow']['timesOutAbs'][i])
 
         allAbsTimesOnion = testPair['hsFlow']['timesOutAbs'] + testPair['hsFlow']['timesInAbs']
         absoluteInitialTimeOnion = min(allAbsTimesOnion)
         maxAbsoluteTimeOnion = max(allAbsTimesOnion)
         
-        os_rtts[requestId] = {'rtts': [absoluteInitialTimeOnion, maxAbsoluteTimeOnion], 'yPacketBytesOutOnion': yPacketBytesOutOnion, 'yPacketTimesOutOnion': yPacketTimesOutOnion, 'requestIds': [onionCapture]}
+        os_rtts[requestId] = {'rtts': [absoluteInitialTimeOnion, maxAbsoluteTimeOnion], 'yPacketTimesOutOnion': yPacketTimesOutOnion, 'requestIds': [onionCapture]}
 
         counter += 1
 
@@ -752,14 +695,10 @@ def process_features_epochs_requests_test_deepcoffea_our_dataset_march(testPairs
             final_session_ts = max(buckets_clients[clientRequestId]['finalTs'], buckets_oses[osRequestId]['finalTs'])
             buckets_session = generateBucketsEpochs(initial_session_ts, final_session_ts, timeSamplingInterval)
 
-            yPacketBytesOutOnionDict =  {}
             yPacketCountOutOnionDict = {}
-            yPacketBytesInDict =  {}
             yPacketCountInDict = {}
             for bucket in buckets_session:
-                yPacketBytesOutOnionDict[bucket] = 0
                 yPacketCountOutOnionDict[bucket] = 0
-                yPacketBytesInDict[bucket] = 0
                 yPacketCountInDict[bucket] = 0
                 
 
@@ -771,7 +710,6 @@ def process_features_epochs_requests_test_deepcoffea_our_dataset_march(testPairs
                 bucket = relativeTs * 1000 // timeSamplingInterval
                     
                 yPacketCountOutOnionDict[bucket] += 1
-                yPacketBytesOutOnionDict[bucket] += os_rtts[osRequestId]['yPacketBytesOutOnion'][i]
             
             # client
             for i in range(0, len(client_rtts[clientRequestId]['yPacketTimesIn'])):
@@ -784,8 +722,8 @@ def process_features_epochs_requests_test_deepcoffea_our_dataset_march(testPairs
 
 
             # Here we place only the bucket range from the OS that makes sense to compare with the client
-            possible_request_combinations[key] = {'yPacketBytesOutOnion': list(yPacketBytesOutOnionDict.values()), 'yPacketCountOutOnion': list(yPacketCountOutOnionDict.values()), \
-                                                    'yPacketBytesIn': list(yPacketBytesInDict.values()), 'yPacketCountIn': list(yPacketCountInDict.values()), 'label': label}
+            possible_request_combinations[key] = {'yPacketCountOutOnion': list(yPacketCountOutOnionDict.values()), \
+                                                    'yPacketCountIn': list(yPacketCountInDict.values()), 'label': label}
 
         counter += 1
 
@@ -865,11 +803,8 @@ def process_features_epochs_requests_test_dataset_deepcoffea(timeSamplingInterva
   
         requestId = 'client{}'.format(counter)  
 
-        yPacketBytesInDict =  {}
         yPacketCountInDict = {}
 
-        for bucket in buckets_clients[requestId]['buckets']:
-            yPacketBytesInDict[bucket] = 0
         for bucket in buckets_clients[requestId]['buckets']:
             yPacketCountInDict[bucket] = 0
 
@@ -882,30 +817,26 @@ def process_features_epochs_requests_test_dataset_deepcoffea(timeSamplingInterva
             bucket = relativeTs * 1000 // timeSamplingInterval
             
             yPacketCountInDict[bucket] += 1
-            yPacketBytesInDict[bucket] += packets_in_client[i]
 
-        yPacketBytesIn = list(yPacketBytesInDict.values())
         yPacketCountIn = list(yPacketCountInDict.values())
 
         allAbsTimes = buckets_clients[requestId]['tses']
         absoluteInitialTime = min(allAbsTimes)
         maxAbsoluteTime = max(allAbsTimes)
 
-        client_rtts[requestId] = {'rtts': [absoluteInitialTime, maxAbsoluteTime], 'yPacketBytesIn': yPacketBytesIn, 'yPacketCountIn': yPacketCountIn, 'requestIds': [clientCapture], 'yPacketTimesIn': buckets_clients[requestId]['tses']}
+        client_rtts[requestId] = {'rtts': [absoluteInitialTime, maxAbsoluteTime], 'yPacketCountIn': yPacketCountIn, 'requestIds': [clientCapture], 'yPacketTimesIn': buckets_clients[requestId]['tses']}
 
         # onion part
         packets_in_os = testPair['there'][1]['->']
-        yPacketBytesOutOnion = []
         yPacketTimesOutOnion = []
         for i in range(0, len(packets_in_os)):
-            yPacketBytesOutOnion.append(packets_in_os[i])
             yPacketTimesOutOnion.append(buckets_oses[requestId]['tses'][i])
 
         allAbsTimesOnion = buckets_oses[requestId]['tses']
         absoluteInitialTimeOnion = min(allAbsTimesOnion)
         maxAbsoluteTimeOnion = max(allAbsTimesOnion)
         
-        os_rtts[requestId] = {'rtts': [absoluteInitialTimeOnion, maxAbsoluteTimeOnion], 'yPacketBytesOutOnion': yPacketBytesOutOnion, 'yPacketTimesOutOnion': buckets_oses[requestId]['tses']}
+        os_rtts[requestId] = {'rtts': [absoluteInitialTimeOnion, maxAbsoluteTimeOnion], 'yPacketTimesOutOnion': buckets_oses[requestId]['tses']}
 
         counter += 1
 
@@ -926,14 +857,10 @@ def process_features_epochs_requests_test_dataset_deepcoffea(timeSamplingInterva
             final_session_ts = max(buckets_clients[clientRequestId]['finalTs'], buckets_oses[osRequestId]['finalTs'])
             buckets_session = generateBucketsEpochs(initial_session_ts, final_session_ts, timeSamplingInterval)
 
-            yPacketBytesOutOnionDict =  {}
             yPacketCountOutOnionDict = {}
-            yPacketBytesInDict =  {}
             yPacketCountInDict = {}
             for bucket in buckets_session:
-                yPacketBytesOutOnionDict[bucket] = 0
                 yPacketCountOutOnionDict[bucket] = 0
-                yPacketBytesInDict[bucket] = 0
                 yPacketCountInDict[bucket] = 0
                 
 
@@ -945,7 +872,6 @@ def process_features_epochs_requests_test_dataset_deepcoffea(timeSamplingInterva
                 bucket = relativeTs * 1000 // timeSamplingInterval
                     
                 yPacketCountOutOnionDict[bucket] += 1
-                yPacketBytesOutOnionDict[bucket] += os_rtts[osRequestId]['yPacketBytesOutOnion'][i]
 
 
             # client
@@ -959,8 +885,8 @@ def process_features_epochs_requests_test_dataset_deepcoffea(timeSamplingInterva
 
 
             # Here we place only the bucket range from the OS that makes sense to compare with the client
-            possible_request_combinations[key] = {'yPacketBytesOutOnion': list(yPacketBytesOutOnionDict.values()), 'yPacketCountOutOnion': list(yPacketCountOutOnionDict.values()), \
-                                                    'yPacketBytesIn': list(yPacketBytesInDict.values()), 'yPacketCountIn': list(yPacketCountInDict.values()), 'label': label}
+            possible_request_combinations[key] = {'yPacketCountOutOnion': list(yPacketCountOutOnionDict.values()), \
+                                                    'yPacketCountIn': list(yPacketCountInDict.values()), 'label': label}
             
         counter += 1
 

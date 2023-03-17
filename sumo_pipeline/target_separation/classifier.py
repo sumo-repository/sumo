@@ -104,14 +104,6 @@ def gatherDataset(plFile, statsFile):
 
     # Combine both feature sets side by side
     train = pd.concat([pl, stats], axis=1)
-    
-    print("pl", pl)
-    print("train", train)
-    print("train[' Class'][12]", train[' Class'].tolist()[12])
-    print("train[' Class'][13]", train[' Class'].tolist()[13])
-    print("train[' Class'][14]", train[' Class'].tolist()[14])
-    print("train[' Class']", train[' Class'])
-    #train[' Class'] = train[' Class'].astype(int)
     train[' Class'] = pd.to_numeric(train[' Class'])
 
     # Remove columns that only have zeros
@@ -129,8 +121,8 @@ def gatherDataset(plFile, statsFile):
 
 
 
-def gatherFullPipelineDataset():
-    clientsFullPipeline = pickle.load(open('../source_separation/full_pipeline_features/client_features_source_separation.pickle', 'rb'))
+def gatherFullPipelineDataset(cols):
+    clientsFullPipeline = pickle.load(open('../source_separation/full_pipeline_features/client_features_source_separation_thr_0.9.pickle', 'rb'))
     captures = list(clientsFullPipeline.keys())
 
     x_train = pd.DataFrame(clientsFullPipeline.values())
@@ -155,9 +147,10 @@ def gatherFullPipelineDataset():
     y_train = x_train[' Class']
     x_train = x_train[x_train.columns[:LABEL_INDEX]]
 
-    captures = x_train[' Capture']
+    # Shuffle dataset
+    x_train = x_train.sample(frac = 1)
             
-    return x_train, y_train, captures
+    return x_train, y_train, pd.DataFrame(captures, columns =[' Capture'])
 
 
 def train(plFileTrain, statsFileTrain):
@@ -169,6 +162,8 @@ def train(plFileTrain, statsFileTrain):
     model = XGBClassifier()
     print("\n=== Training model ...")
     model.fit(np.asarray(X_train), np.asarray(y_train))
+
+    model.feature_names = list(X_train.columns.values)
     
     if not os.path.exists(models_folder):
         os.makedirs(models_folder)
@@ -197,16 +192,16 @@ def test(plFileTest, statsFileTest):
 
 def test_full_pipeline():
 
-    if os.isfile(model_save_file):
+    if os.path.isfile(models_folder+model_save_file):
         print("Gathering trained model ...")
-        model = joblib.load(model_save_file)
+        model = joblib.load(models_folder+model_save_file)
     else:
-        print("You have to train and test source separation's model and train target separation's model first!")
+        print("You have to train and test target separation's model and train target separation's model first!")
         print("Exiting ...")
         exit()
 
     print("Gathering full pipeline testing dataset ...")
-    X_test , y_test, test_captures = gatherFullPipelineDataset()
+    X_test , y_test, test_captures = gatherFullPipelineDataset(model.feature_names)
 
     # Predicts the probability of each element to belong to a determined class
     probas_ = model.predict_proba(np.asarray(X_test))
@@ -217,12 +212,11 @@ def test_full_pipeline():
 
     for i in range(len(predictions_final)):
         if predictions_final[i] == 1:     
-            outputClientFeatures[test_captures.iloc[i]] = X_test.iloc[i]
+            outputClientFeatures[test_captures[' Capture'].iloc[i]] = X_test.iloc[i]
 
     features_folder = 'full_pipeline_features/'
     if not os.path.exists(features_folder):
         os.makedirs(features_folder)
-    pickle.dump(outputClientFeatures, open(features_folder+'client_features_target_separation.pickle', 'wb'))
+    pickle.dump(outputClientFeatures, open(features_folder+'client_features_target_separation_thr_{}.pickle'.format(THRESHOLD), 'wb'))
 
-    
     return probas_

@@ -39,14 +39,13 @@ def train():
 @app.command()
 def test_standalone():
     print("Testing model ...")
-    #classifier.test(plFileTest, statsFileTest, optimalThr=True)
-    classifier.test(plFileTest, statsFileTest, optimalThr=False)
+    classifier.test(plFileTest, statsFileTest)
 
 
 @app.command()
 def test_full_pipeline():
     print("Testing model with full pipeline data ...")
-    classifier.test_full_pipeline()
+    classifier.test_full_pipeline(plFileTest, statsFileTest, optimalThr=False)
 
 
 @app.command()

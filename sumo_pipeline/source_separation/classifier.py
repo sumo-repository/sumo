@@ -1,8 +1,3 @@
-"""OS Classifier 
-
-Trains the model through guided learning with features
-"""
-
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import os
@@ -119,12 +114,35 @@ def train(plFileTrain, statsFileTrain):
     print("\n=== Training model ...")
     model.fit(X_train, y_train)
 
+    # Save features names
+    model.feature_names = list(X_train.columns.values)
+
     if not os.path.exists(models_folder):
         os.makedirs(models_folder)
     joblib.dump(model, models_folder+model_save_file)
 
 
-def test(plFileTest, statsFileTest, optimalThr=True):
+def test(plFileTest, statsFileTest):
+
+    if os.path.isfile(models_folder+model_save_file):
+        print("Gathering trained model ...")
+        model = joblib.load(models_folder+model_save_file)
+    else:
+        print("You have to train source separation's model first!")
+        print("Exiting ...")
+        exit()
+
+    print("Gathering testing dataset ...")
+    X_test , y_test, test_captures = gatherDataset(plFileTest, statsFileTest)
+
+    # Predicts the probability of each element to belong to a determined class
+    probas_ = model.predict_proba(X_test)
+    plot_precision_recall_curve(y_test, probas_)
+    
+    return probas_
+
+
+def test_full_pipeline(plFileTest, statsFileTest, optimalThr=True):
 
     if os.path.isfile(models_folder+model_save_file):
         print("Gathering trained model ...")
